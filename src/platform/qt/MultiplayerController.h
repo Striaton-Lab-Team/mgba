@@ -12,6 +12,7 @@
 
 #include <mgba/core/core.h>
 #include <mgba/core/lockstep.h>
+#include <mgba/core/coordinator.h>
 #ifdef M_CORE_GBA
 #include <mgba/internal/gba/sio/lockstep.h>
 #endif
@@ -47,9 +48,9 @@ signals:
 	void gameDetached();
 
 private:
-	union Node {
-		GBSIOLockstepNode* gb;
-		GBASIOLockstepDriver* gba;
+	union LockstepDriver {
+		struct GBSIOLockstepNode* gb;
+		struct GBASIOLockstepDriver* gba;
 	};
 	struct Player {
 		Player(CoreController* controller);
@@ -58,7 +59,7 @@ private:
 		bool operator<(const Player&) const;
 
 		CoreController* controller;
-		Node node = {nullptr};
+		LockstepDriver lockstepDriver = {nullptr};
 		int awake = 1;
 		int32_t cyclesPosted = 0;
 		unsigned waitMask = 0;
@@ -76,17 +77,17 @@ private:
 	void fixOrder();
 
 	union {
-		mLockstep m_lockstep;
+		struct mLockstep m_lockstep;
 #ifdef M_CORE_GB
-		GBSIOLockstep m_gbLockstep;
+		struct GBSIOLockstep m_gbLockstep;
 #endif
 	};
 
 #ifdef M_CORE_GBA
-	GBASIOLockstepCoordinator m_gbaCoordinator;
+	struct SIOLockstepCoordinator m_gbaCoordinator;
 #endif
 
-	mPlatform m_platform = mPLATFORM_NONE;
+	enum mPlatform m_platform = mPLATFORM_NONE;
 	int m_nextPid = 0;
 	int m_claimedIds = 0;
 	QHash<int, Player> m_pids;

@@ -62,7 +62,7 @@ void GBSIOLockstepDetachNode(struct GBSIOLockstep* lockstep, struct GBSIOLockste
 
 bool GBSIOLockstepNodeInit(struct GBSIODriver* driver) {
 	struct GBSIOLockstepNode* node = (struct GBSIOLockstepNode*) driver;
-	mLOG(GB_SIO, DEBUG, "Lockstep %i: Node init", node->id);
+	mLOG(GB_SIO, DEBUG, "Lockstep %i: LockstepDriver init", node->id);
 	node->event.context = node;
 	node->event.name = "GB SIO Lockstep";
 	node->event.callback = _GBSIOLockstepNodeProcessEvents;

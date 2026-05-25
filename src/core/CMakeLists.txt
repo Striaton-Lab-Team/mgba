@@ -3,6 +3,7 @@ set(SOURCE_FILES
 	bitmap-cache.c
 	cache-set.c
 	cheats.c
+	coordinator.c
 	config.c
 	core.c
 	directories.c
