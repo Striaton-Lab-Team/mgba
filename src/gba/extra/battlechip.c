@@ -35,7 +35,7 @@ enum {
 
 static bool GBASIOBattlechipGateInit(struct GBASIODriver* driver);
 static uint16_t GBASIOBattlechipGateWriteSIOCNT(struct GBASIODriver* driver, uint16_t value);
-static bool GBASIOBattlechipGateHandlesMode(struct GBASIODriver* driver, enum GBASIOMode mode);
+static bool GBASIOBattlechipGateHandlesMode(struct GBASIODriver* driver, enum SIOMode mode);
 static int GBASIOBattlechipGateConnectedDevices(struct GBASIODriver* driver);
 static void GBASIOBattlechipGateFinishMultiplayer(struct GBASIODriver* driver, uint16_t data[4]);
 
@@ -66,7 +66,7 @@ uint16_t GBASIOBattlechipGateWriteSIOCNT(struct GBASIODriver* driver, uint16_t v
 	return value;
 }
 
-static bool GBASIOBattlechipGateHandlesMode(struct GBASIODriver* driver, enum GBASIOMode mode) {
+static bool GBASIOBattlechipGateHandlesMode(struct GBASIODriver* driver, enum SIOMode mode) {
 	UNUSED(driver);
 	switch (mode) {
 	case GBA_SIO_NORMAL_32:

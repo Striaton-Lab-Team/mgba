@@ -85,7 +85,7 @@ private:
 // 	};
 
 #ifdef M_CORE_GBA
-	struct SIOLockstepCoordinator m_gbaCoordinator;
+	struct SIOLockstepCoordinator m_coordinator;
 #endif
 
 	enum mPlatform m_platform = mPLATFORM_NONE;

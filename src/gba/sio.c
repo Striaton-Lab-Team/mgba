@@ -20,7 +20,7 @@ static const int GBASIOCyclesPerTransfer[4][MAX_GBAS] = {
 
 static void _sioFinish(struct mTiming* timing, void* user, uint32_t cyclesLate);
 
-static const char* _modeName(enum GBASIOMode mode) {
+static const char* _modeName(enum SIOMode mode) {
 	switch (mode) {
 	case GBA_SIO_NORMAL_8:
 		return "NORMAL8";
@@ -39,14 +39,14 @@ static const char* _modeName(enum GBASIOMode mode) {
 
 static void _switchMode(struct GBASIO* sio) {
 	unsigned mode = ((sio->rcnt & 0xC000) | (sio->siocnt & 0x3000)) >> 12;
-	enum GBASIOMode newMode;
+	enum SIOMode newMode;
 	if (mode < 8) {
-		newMode = (enum GBASIOMode) (mode & 0x3);
+		newMode = (enum SIOMode) (mode & 0x3);
 	} else {
-		newMode = (enum GBASIOMode) (mode & 0xC);
+		newMode = (enum SIOMode) (mode & 0xC);
 	}
 	if (newMode != sio->mode) {
-		if (sio->mode != (enum GBASIOMode) -1) {
+		if (sio->mode != (enum SIOMode) -1) {
 			mLOG(GBA_SIO, DEBUG, "Switching mode from %s to %s", _modeName(sio->mode), _modeName(newMode));
 		}
 		sio->mode = newMode;
@@ -361,7 +361,7 @@ uint16_t GBASIOWriteRegister(struct GBASIO* sio, uint32_t address, uint16_t valu
 	return value;
 }
 
-int32_t GBASIOTransferCycles(enum GBASIOMode mode, uint16_t siocnt, int connected) {
+int32_t GBASIOTransferCycles(enum SIOMode mode, uint16_t siocnt, int connected) {
 	if (connected < 0 || connected >= MAX_GBAS) {
 		mLOG(GBA_SIO, ERROR, "Invalid device count %i", connected);
 		return 0;

@@ -16,6 +16,8 @@ CXX_GUARD_START
 #include <mgba/gba/interface.h>
 #include <mgba/internal/gba/sio/gbp.h>
 
+#include <mgba/core/coordinator.h>
+
 #define MAX_GBAS 4
 
 mLOG_DECLARE_CATEGORY(GBA_SIO);
@@ -67,7 +69,7 @@ DECL_BIT(GBASIORegisterRCNT, SoDirection, 7);
 struct GBASIO {
 	struct GBA* p;
 
-	enum GBASIOMode mode;
+	enum SIOMode mode;
 	struct GBASIODriver* driver;
 
 	uint16_t rcnt;
@@ -87,7 +89,7 @@ void GBASIOWriteRCNT(struct GBASIO* sio, uint16_t value);
 void GBASIOWriteSIOCNT(struct GBASIO* sio, uint16_t value);
 uint16_t GBASIOWriteRegister(struct GBASIO* sio, uint32_t address, uint16_t value);
 
-int32_t GBASIOTransferCycles(enum GBASIOMode mode, uint16_t siocnt, int connected);
+int32_t GBASIOTransferCycles(enum SIOMode mode, uint16_t siocnt, int connected);
 
 void GBASIOMultiplayerFinishTransfer(struct GBASIO* sio, uint16_t data[4], uint32_t cyclesLate);
 void GBASIONormal8FinishTransfer(struct GBASIO* sio, uint8_t data, uint32_t cyclesLate);

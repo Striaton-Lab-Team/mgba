@@ -15,6 +15,7 @@ static void GBSIOLockstepDriverDeinit(struct GBSIODriver* driver);
 static void GBSIOLockstepDriverWriteSB(struct GBSIODriver* driver, uint8_t value);
 static uint8_t GBSIOLockstepDriverWriteSC(struct GBSIODriver* driver, uint8_t value);
 static void GBSIOLockstepDriverLoadSB(struct GBSIODriver* driver);
+static int GBSIOLockstepDriverDeviceId(struct GBSIODriver* driver);
 
 static void _onSioAttach(struct SIOLockstepPlayer* player, void* driver);
 static void _onSioDetach(struct SIOLockstepPlayer* player, void* driver);
@@ -34,6 +35,7 @@ void GBSIOLockstepDriverCreate(struct GBSIOLockstepDriver* driver, struct mLocks
 	driver->d.writeSB = GBSIOLockstepDriverWriteSB;
 	driver->d.writeSC = GBSIOLockstepDriverWriteSC;
 	driver->d.loadPendingSB = GBSIOLockstepDriverLoadSB;
+	driver->d.deviceId = GBSIOLockstepDriverDeviceId;
 
 	driver->event.context = driver;
 	driver->event.callback = _lockstep;
@@ -85,15 +87,15 @@ bool GBSIOLockstepDriverInit(struct GBSIODriver* driver) {
 				break;
 			}
 		}
-		coordinator_reconfigPlayers(coordinator);
+		CoordinatorReconfigPlayers(coordinator);
 		player->cycleOffset = mTimingCurrentTime(&driver->p->p->timing) - coordinator->cycle;
 
 		struct SIOLockstepEvent event = {
 			.type = SIO_EV_GB_ATTACH,
 			.playerId = player->playerId,
-			.timestamp = coordinator_lockstepPlayerTime(player),
+			.timestamp = CoordinatorLockstepPlayerTime(player),
 		};
-		coordinator_enqueueEvent(coordinator, &event, TARGET_ALL & ~TARGET(player->playerId));
+		CoordinatorEnqueueEvent(coordinator, &event, TARGET_ALL & ~TARGET(player->playerId));
 	}
 	 else {
 		MutexLock(&coordinator->mutex);
@@ -102,13 +104,13 @@ bool GBSIOLockstepDriverInit(struct GBSIODriver* driver) {
 	}
 
 	int32_t nextEvent;
-	coordinator_setReady(coordinator, player, player->playerId, player->mode);
+	CoordinatorSetReady(coordinator, player, player->playerId, player->mode);
 	if (TableSize(&coordinator->players) == 1) {
 		coordinator->cycle = mTimingCurrentTime(&lockstep->d.p->p->timing);
 		nextEvent = LOCKSTEP_INTERVAL;
 	} else {
-		coordinator_setReady(coordinator, player, 0, coordinator->transferMode);
-		nextEvent = coordinator_untilNextSync(lockstep->coordinator, player);
+		CoordinatorSetReady(coordinator, player, 0, coordinator->transferMode);
+		nextEvent = CoordinatorUntilNextSync(lockstep->coordinator, player);
 	}
 
 	MutexUnlock(&coordinator->mutex);
@@ -118,12 +120,27 @@ bool GBSIOLockstepDriverInit(struct GBSIODriver* driver) {
 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
 
+static int GBSIOLockstepDriverDeviceId(struct GBSIODriver* driver) {
+	struct GBSIOLockstepDriver* lockstep = (struct GBSIOLockstepDriver*) driver;
+	struct SIOLockstepCoordinator* coordinator = lockstep->coordinator;
+	int playerId = 0;
+	MutexLock(&coordinator->mutex);
+	struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, lockstep->lockstepId);
+	if (player && player->playerId >= 0) {
+		playerId = player->playerId;
+	}
+	MutexUnlock(&coordinator->mutex);
+	return playerId;
+}
+
+//-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
+
 static void GBSIOLockstepDriverDeinit(struct GBSIODriver* driver) {
 	struct GBSIOLockstepDriver* lockstep = (struct GBSIOLockstepDriver*) driver;
 	struct SIOLockstepCoordinator* coordinator = lockstep->coordinator;
 	MutexLock(&coordinator->mutex);
 	struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, lockstep->lockstepId);
-	coordinator_removePlayer(coordinator, player);
+	CoordinatorRemovePlayer(coordinator, player);
 	MutexUnlock(&coordinator->mutex);
 	mTimingDeschedule(&lockstep->d.p->p->timing, &lockstep->event);
 	lockstep->lockstepId = 0;
@@ -167,14 +184,14 @@ static uint8_t GBSIOLockstepDriverWriteSC(struct GBSIODriver* driver, uint8_t va
 	MutexLock(&coordinator->mutex);
 	struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, lockstep->lockstepId);
 	if ((value & 0x81) == 0x81 && coordinator->nAttached > 1) {
-		int32_t timestamp = coordinator_lockstepPlayerTime(player);
+		int32_t timestamp = CoordinatorLockstepPlayerTime(player);
 		struct SIOLockstepEvent event = {
 			.type = SIO_EV_TRANSFER_START,
 			.timestamp = timestamp,
 			.finishCycle = timestamp + GBSIOCyclesPerTransfer[(value >> 1) & 1]
 		};
-		coordinator_enqueueEvent(coordinator, &event, TARGET_SECONDARY);
-		coordinator_waitOnPlayers(coordinator, player);
+		CoordinatorEnqueueEvent(coordinator, &event, TARGET_SECONDARY);
+		CoordinatorWaitOnPlayers(coordinator, player);
 		coordinator->transferActive = true;
 	}
 	MutexUnlock(&coordinator->mutex);
@@ -220,7 +237,7 @@ static void _lockstep(struct mTiming* timing, void* context, uint32_t cyclesLate
 	struct SIOLockstepCoordinator* coordinator = lockstep->coordinator;
 	struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, lockstep->lockstepId);
 
-	int32_t nextEvent = coordinator_lockstepEvent(coordinator, player, timing, cyclesLate);
+	int32_t nextEvent = CoordinatorLockstepEvent(coordinator, player, timing, cyclesLate);
 	mTimingSchedule(timing, &lockstep->event, nextEvent);
 }
 

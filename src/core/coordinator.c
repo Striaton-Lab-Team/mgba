@@ -1,4 +1,5 @@
 #include <mgba/internal/gba/sio/lockstep.h>
+#include <mGBA/internal/gb/sio/coordinator-lockstep.h>
 #include <mgba/core/coordinator.h>
 #include <mgba/internal/gba/gba.h>
 
@@ -21,7 +22,7 @@ static void _verifyAwake(struct SIOLockstepCoordinator* coordinator) {
 #endif
 }
 
-void coordinator_abortTransfer(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
+void CoordinatorAbortTransfer(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
 	mLOG(GBA_SIO, DEBUG, "Aborting in-progress transfer");
 	// TODO: Do we need to clean this up better?
 	coordinator->transferActive = false;
@@ -30,14 +31,14 @@ void coordinator_abortTransfer(struct SIOLockstepCoordinator* coordinator, struc
 	if (player->playerId != 0) {
 		struct SIOLockstepPlayer* runner = TableLookup(&coordinator->players, coordinator->attachedPlayers[0]);
 		if (runner) {
-			coordinator_lockstepPlayerWake(runner);
+			CoordinatorLockstepPlayerWake(runner);
 		}
 	} else {
-		coordinator_wakePlayers(coordinator);
+		CoordinatorWakePlayers(coordinator);
 	}
 }
 
-void coordinator_waitOnPlayers(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
+void CoordinatorWaitOnPlayers(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
 	mASSERT_LOG(GBA_SIO, !coordinator->waiting, "Multiplayer desynchronized: coordinator still waiting");
 	mASSERT_LOG(GBA_SIO, !player->asleep, "Multiplayer desynchronized: player asleep");
 	mASSERT_LOG(GBA_SIO, player->playerId == 0, "Multiplayer desynchronized: invalid player %i attempting to coordinate", player->playerId);
@@ -48,25 +49,25 @@ void coordinator_waitOnPlayers(struct SIOLockstepCoordinator* coordinator, struc
 	_advanceCycle(coordinator, player);
 	mLOG(GBA_SIO, DEBUG, "Primary waiting for players to ack");
 	coordinator->waiting = ((1 << coordinator->nAttached) - 1) & ~TARGET(player->playerId);
-	coordinator_lockstepPlayerSleep(player);
-	coordinator_wakePlayers(coordinator);
+	CoordinatorLockstepPlayerSleep(player);
+	CoordinatorWakePlayers(coordinator);
 
 	_verifyAwake(coordinator);
 }
 
-void coordinator_wakePlayers(struct SIOLockstepCoordinator* coordinator) {
+void CoordinatorWakePlayers(struct SIOLockstepCoordinator* coordinator) {
 	int i;
 	for (i = 1; i < coordinator->nAttached; ++i) {
 		if (!coordinator->attachedPlayers[i]) {
 			continue;
 		}
 		struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, coordinator->attachedPlayers[i]);
-		coordinator_lockstepPlayerWake(player);
+		CoordinatorLockstepPlayerWake(player);
 	}
 }
 
 
-void coordinator_lockstepPlayerWake(struct SIOLockstepPlayer* player) {
+void CoordinatorLockstepPlayerWake(struct SIOLockstepPlayer* player) {
 	if (!player->asleep) {
 		return;
 	}
@@ -74,7 +75,7 @@ void coordinator_lockstepPlayerWake(struct SIOLockstepPlayer* player) {
 	player->user->wake(player->user);
 }
 
-void coordinator_ackPlayer(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
+void CoordinatorAckPlayer(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
 	if (player->playerId == 0) {
 		return;
 	}
@@ -95,17 +96,17 @@ void coordinator_ackPlayer(struct SIOLockstepCoordinator* coordinator, struct SI
 		}
 
 		struct SIOLockstepPlayer* runner = TableLookup(&coordinator->players, coordinator->attachedPlayers[0]);
-		coordinator_lockstepPlayerWake(runner);
+		CoordinatorLockstepPlayerWake(runner);
 	}
-	coordinator_lockstepPlayerSleep(player);
+	CoordinatorLockstepPlayerSleep(player);
 }
 
-int32_t coordinator_lockstepPlayerTime(struct SIOLockstepPlayer* player) {
+int32_t CoordinatorLockstepPlayerTime(struct SIOLockstepPlayer* player) {
 	return mTimingCurrentTime(player->core_timing(player->driver)) - player->cycleOffset;
 }
 
-int32_t coordinator_untilNextSync(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
-	int32_t cycle = coordinator->cycle - coordinator_lockstepPlayerTime(player);
+int32_t CoordinatorUntilNextSync(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
+	int32_t cycle = coordinator->cycle - CoordinatorLockstepPlayerTime(player);
 	if (player->playerId == 0) {
 		if (coordinator->nAttached < 2) {
 			cycle += UNLOCKED_INTERVAL;
@@ -117,34 +118,34 @@ int32_t coordinator_untilNextSync(struct SIOLockstepCoordinator* coordinator, st
 }
 
 void _advanceCycle(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
-	int32_t newCycle = coordinator_lockstepPlayerTime(player);
+	int32_t newCycle = CoordinatorLockstepPlayerTime(player);
 	mASSERT_DEBUG(newCycle - coordinator->cycle >= 0);
 	coordinator->nextHardSync -= newCycle - coordinator->cycle;
 	coordinator->cycle = newCycle;
 }
 
-void coordinator_removePlayer(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
+void CoordinatorRemovePlayer(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
 	struct SIOLockstepEvent event = {
 		.type = SIO_EV_DETACH,
 		.playerId = player->playerId,
-		.timestamp = coordinator_lockstepPlayerTime(player),
+		.timestamp = CoordinatorLockstepPlayerTime(player),
 	};
-	coordinator_enqueueEvent(coordinator, &event, TARGET_ALL & ~TARGET(player->playerId));
+	CoordinatorEnqueueEvent(coordinator, &event, TARGET_ALL & ~TARGET(player->playerId));
 
 	coordinator->waiting = 0;
 	coordinator->transferActive = false;
 
 	TableRemove(&coordinator->players, player->lockstepId);
-	coordinator_reconfigPlayers(coordinator);
+	CoordinatorReconfigPlayers(coordinator);
 
 	struct SIOLockstepPlayer* runner = TableLookup(&coordinator->players, coordinator->attachedPlayers[0]);
 	if (runner) {
-		coordinator_lockstepPlayerWake(runner);
+		CoordinatorLockstepPlayerWake(runner);
 	}
 	_verifyAwake(coordinator);
 }
 
-void coordinator_reconfigPlayers(struct SIOLockstepCoordinator* coordinator) {
+void CoordinatorReconfigPlayers(struct SIOLockstepCoordinator* coordinator) {
 	size_t players = TableSize(&coordinator->players);
 	memset(coordinator->attachedPlayers, 0, sizeof(coordinator->attachedPlayers));
 	if (players == 0) {
@@ -246,7 +247,7 @@ void coordinator_reconfigPlayers(struct SIOLockstepCoordinator* coordinator) {
 	coordinator->nAttached = nAttached;
 }
 
-void coordinator_setReady(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* activePlayer, int playerId, enum GBASIOMode mode) {
+void CoordinatorSetReady(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* activePlayer, int playerId, enum SIOMode mode) {
 	activePlayer->otherModes[playerId] = mode;
 	bool ready = true;
 	int i;
@@ -259,18 +260,18 @@ void coordinator_setReady(struct SIOLockstepCoordinator* coordinator, struct SIO
 
 }
 
-void coordinator_hardSync(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
+void CoordinatorHardSync(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
 	mASSERT_DEBUG(player->playerId == 0);
 	struct SIOLockstepEvent event = {
 		.type = SIO_EV_HARD_SYNC,
 		.playerId = 0,
-		.timestamp = coordinator_lockstepPlayerTime(player),
+		.timestamp = CoordinatorLockstepPlayerTime(player),
 	};
-	coordinator_enqueueEvent(coordinator, &event, TARGET_SECONDARY);
-	coordinator_waitOnPlayers(coordinator, player);
+	CoordinatorEnqueueEvent(coordinator, &event, TARGET_SECONDARY);
+	CoordinatorWaitOnPlayers(coordinator, player);
 }
 
-void coordinator_lockstepPlayerSleep(struct SIOLockstepPlayer* player) {
+void CoordinatorLockstepPlayerSleep(struct SIOLockstepPlayer* player) {
 	if (player->asleep) {
 		return;
 	}
@@ -280,7 +281,7 @@ void coordinator_lockstepPlayerSleep(struct SIOLockstepPlayer* player) {
 	// GBAInterrupt(player->driver->d.p->p);
 }
 
-void coordinator_enqueueEvent(struct SIOLockstepCoordinator* coordinator, const struct SIOLockstepEvent* event, uint32_t target) {
+void CoordinatorEnqueueEvent(struct SIOLockstepCoordinator* coordinator, const struct SIOLockstepEvent* event, uint32_t target) {
 	mLOG(GBA_SIO, DEBUG, "Enqueuing event of type %X from %i for target %X at timestamp %X",
 	                      event->type, event->playerId, target, event->timestamp);
 
@@ -310,7 +311,7 @@ void coordinator_enqueueEvent(struct SIOLockstepCoordinator* coordinator, const 
 	}
 }
 
-int32_t coordinator_lockstepEvent(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player, struct mTiming* timing, uint32_t cyclesLate) {
+int32_t CoordinatorLockstepEvent(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player, struct mTiming* timing, uint32_t cyclesLate) {
 	MutexLock(&coordinator->mutex);
 	bool wasDetach = false;
 	if (player->queue && player->queue->type == SIO_EV_DETACH) {
@@ -318,71 +319,71 @@ int32_t coordinator_lockstepEvent(struct SIOLockstepCoordinator* coordinator, st
 		                      player->queue->playerId, player->queue->timestamp);
 		wasDetach = true;
 	}
-	if (player->playerId == 0 && coordinator_lockstepPlayerTime(player) - coordinator->cycle >= 0) {
+	if (player->playerId == 0 && CoordinatorLockstepPlayerTime(player) - coordinator->cycle >= 0) {
 		// We are the clock owner; advance the shared clock. However, if we just became
 		// the clock owner (by the previous one disconnecting) we might be slightly
 		// behind the shared clock. We should wait a bit if needed in that case.
 		_advanceCycle(coordinator, player);
 		if (!coordinator->transferActive) {
-			coordinator_wakePlayers(coordinator);
+			CoordinatorWakePlayers(coordinator);
 		}
 		if (coordinator->nextHardSync < 0) {
 			if (!coordinator->waiting) {
-				coordinator_hardSync(coordinator, player);
+				CoordinatorHardSync(coordinator, player);
 			}
 			coordinator->nextHardSync += HARD_SYNC_INTERVAL;
 		}
 	}
 
-	int32_t nextEvent = coordinator_untilNextSync(coordinator, player);
+	int32_t nextEvent = CoordinatorUntilNextSync(coordinator, player);
 	while (true) {
 		struct SIOLockstepEvent* event = player->queue;
 		if (!event) {
 			break;
 		}
-		if (event->timestamp > coordinator_lockstepPlayerTime(player)) {
+		if (event->timestamp > CoordinatorLockstepPlayerTime(player)) {
 			break;
 		}
 		player->queue = event->next;
 		struct SIOLockstepEvent reply = {
 			.playerId = player->playerId,
-			.timestamp = coordinator_lockstepPlayerTime(player),
+			.timestamp = CoordinatorLockstepPlayerTime(player),
 		};
 		mLOG(GBA_SIO, DEBUG, "Got event of type %X from %i at timestamp %X",
 		                      event->type, event->playerId, event->timestamp);
 		switch (event->type) {
 		case SIO_EV_GBA_ATTACH:
-			coordinator_setReady(coordinator, player, event->playerId, -1);
+			CoordinatorSetReady(coordinator, player, event->playerId, -1);
 			player->lockstepEvents.on_sio_attach(player, player->driver);
 			reply.mode = player->mode;
 			reply.type = SIO_EV_MODE_SET;
-			coordinator_enqueueEvent(coordinator, &reply, TARGET(event->playerId));
+			CoordinatorEnqueueEvent(coordinator, &reply, TARGET(event->playerId));
 			break;
 		case SIO_EV_HARD_SYNC:
-			coordinator_ackPlayer(coordinator, player);
+			CoordinatorAckPlayer(coordinator, player);
 			break;
 		case SIO_EV_TRANSFER_START:
-			nextEvent = event->finishCycle - coordinator_lockstepPlayerTime(player) - cyclesLate;
+			nextEvent = event->finishCycle - CoordinatorLockstepPlayerTime(player) - cyclesLate;
 			player->lockstepEvents.on_sio_transfer_start(player, nextEvent, player->driver);
-			coordinator_ackPlayer(coordinator, player);
+			CoordinatorAckPlayer(coordinator, player);
 			break;
 		case SIO_EV_MODE_SET:
 			if (coordinator->transferActive && player->mode != event->mode) {
 				mLOG(GBA_SIO, DEBUG, "Switching modes while transfer is active");
-				coordinator_abortTransfer(coordinator, player);
+				CoordinatorAbortTransfer(coordinator, player);
 			}
 			player->lockstepEvents.on_sio_detach(player, player->driver);
-			coordinator_setReady(coordinator, player, event->playerId, event->mode);
+			CoordinatorSetReady(coordinator, player, event->playerId, event->mode);
 			if (event->playerId == 0) {
-				coordinator_ackPlayer(coordinator, player);
+				CoordinatorAckPlayer(coordinator, player);
 			}
 			break;
 		case SIO_EV_DETACH:
-			coordinator_setReady(coordinator, player, event->playerId, -1);
-			coordinator_setReady(coordinator, player, player->playerId, player->mode);
+			CoordinatorSetReady(coordinator, player, event->playerId, -1);
+			CoordinatorSetReady(coordinator, player, player->playerId, player->mode);
 			reply.mode = player->mode;
 			reply.type = SIO_EV_MODE_SET;
-			coordinator_enqueueEvent(coordinator, &reply, ~TARGET(event->playerId));
+			CoordinatorEnqueueEvent(coordinator, &reply, ~TARGET(event->playerId));
 			player->lockstepEvents.on_sio_detach(player, player->driver);
 			wasDetach = true;
 			break;
@@ -390,13 +391,13 @@ int32_t coordinator_lockstepEvent(struct SIOLockstepCoordinator* coordinator, st
 		event->next = player->freeList;
 		player->freeList = event;
 	}
-	if (player->queue && player->queue->timestamp - coordinator_lockstepPlayerTime(player) < nextEvent) {
-		nextEvent = player->queue->timestamp - coordinator_lockstepPlayerTime(player);
+	if (player->queue && player->queue->timestamp - CoordinatorLockstepPlayerTime(player) < nextEvent) {
+		nextEvent = player->queue->timestamp - CoordinatorLockstepPlayerTime(player);
 	}
 
 	if (player->playerId != 0 && nextEvent <= LOCKSTEP_INTERVAL) {
 		if (!player->queue || wasDetach) {
-			coordinator_lockstepPlayerSleep(player);
+			CoordinatorLockstepPlayerSleep(player);
 			// XXX: Is there a better way to gain sync lock at the beginning?
 			if (nextEvent < 4) {
 				nextEvent = 4;
@@ -415,7 +416,7 @@ int32_t coordinator_lockstepEvent(struct SIOLockstepCoordinator* coordinator, st
 // Coordinator 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
 
-void coordinator_init(struct SIOLockstepCoordinator* coordinator) {
+void CoordinatorInit(struct SIOLockstepCoordinator* coordinator) {
 	memset(coordinator, 0, sizeof(*coordinator));
 	MutexInit(&coordinator->mutex);
 	TableInit(&coordinator->players, 8, free);
@@ -423,38 +424,92 @@ void coordinator_init(struct SIOLockstepCoordinator* coordinator) {
 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
 
-void coordinator_deinit(struct SIOLockstepCoordinator* coordinator) {
+void CoordinatorDeinit(struct SIOLockstepCoordinator* coordinator) {
 	MutexDeinit(&coordinator->mutex);
 	TableDeinit(&coordinator->players);
 }
 
-void coordinator_attach(struct SIOLockstepCoordinator* coordinator, struct GBASIOLockstepDriver* driver) {
-	if (driver->coordinator && driver->coordinator != coordinator) {
-		// TODO
-		abort();
+//-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
+
+void CoordinatorAttachDriver(struct SIOLockstepCoordinator* coordinator, enum mPlatform platform, void* driver) {
+	switch (platform) {
+#ifdef M_CORE_GBA
+	case mPLATFORM_GBA: {
+		struct GBASIOLockstepDriver* gbaLockstepDriver = (struct GBASIOLockstepDriver*)driver;
+		if (gbaLockstepDriver->coordinator && gbaLockstepDriver->coordinator != coordinator) {
+			// TODO
+			abort();
+		}
+		gbaLockstepDriver->coordinator = coordinator;
+		break;
 	}
-	driver->coordinator = coordinator;
+
+#endif
+#ifdef M_CORE_GB
+	case mPLATFORM_GB: {
+		struct GBSIOLockstepDriver* gbLockstepDriver = (struct GBSIOLockstepDriver*)driver;
+		if (gbLockstepDriver->coordinator && gbLockstepDriver->coordinator != coordinator) {
+			// TODO
+			abort();
+		}
+		gbLockstepDriver->coordinator = coordinator;
+		break;
+	}
+#endif
+	default:
+		break;
+	}
 }
 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
 
-void coordinator_detach(struct SIOLockstepCoordinator* coordinator, struct GBASIOLockstepDriver* driver) {
-	if (driver->coordinator != coordinator) {
-		// TODO
-		abort();
-		return;
+void CoordinatorDetachDriver(struct SIOLockstepCoordinator* coordinator, enum mPlatform platform, void* driver) {
+	switch (platform) {
+#ifdef M_CORE_GBA
+	case mPLATFORM_GBA: {
+		struct GBASIOLockstepDriver* gbaLockstepDriver = (struct GBASIOLockstepDriver*)driver;
+		if (gbaLockstepDriver->coordinator != coordinator) {
+			// TODO
+			abort();
+			return;
+		}
+		MutexLock(&coordinator->mutex);
+		struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, gbaLockstepDriver->lockstepId);
+		if (player) {
+			CoordinatorRemovePlayer(coordinator, player);
+		}
+		MutexUnlock(&coordinator->mutex);
+		gbaLockstepDriver->coordinator = NULL;
+		break;
 	}
-	MutexLock(&coordinator->mutex);
-	struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, driver->lockstepId);
-	if (player) {
-		coordinator_removePlayer(coordinator, player);
+
+#endif
+#ifdef M_CORE_GB
+	case mPLATFORM_GB: {
+		struct GBSIOLockstepDriver* gbLockstepDriver = (struct GBSIOLockstepDriver*)driver;
+		if (gbLockstepDriver->coordinator != coordinator) {
+			// TODO
+			abort();
+			return;
+		}
+		MutexLock(&coordinator->mutex);
+		struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, gbLockstepDriver->lockstepId);
+		if (player) {
+			CoordinatorRemovePlayer(coordinator, player);
+		}
+		MutexUnlock(&coordinator->mutex);
+		gbLockstepDriver->coordinator = NULL;
+		break;
 	}
-	MutexUnlock(&coordinator->mutex);
-	driver->coordinator = NULL;
+#endif
+	default:
+		break;
+	}
 }
 
+//-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
 
-size_t coordinator_attached(struct SIOLockstepCoordinator* coordinator) {
+size_t CoordinatorAttached(struct SIOLockstepCoordinator* coordinator) {
 	return coordinator->nAttached;
 }
 

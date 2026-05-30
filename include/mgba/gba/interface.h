@@ -19,7 +19,7 @@ enum {
 	GBA_VIDEO_VERTICAL_PIXELS = 160,
 };
 
-enum GBASIOMode {
+enum SIOMode {
 	GBA_SIO_NORMAL_8 = 0,
 	GBA_SIO_NORMAL_32 = 1,
 	GBA_SIO_MULTI = 2,
@@ -116,8 +116,8 @@ struct GBASIODriver {
 	uint32_t (*driverId)(const struct GBASIODriver* renderer);
 	bool (*loadState)(struct GBASIODriver* renderer, const void* state, size_t size);
 	void (*saveState)(struct GBASIODriver* renderer, void** state, size_t* size);
-	void (*setMode)(struct GBASIODriver* driver, enum GBASIOMode mode);
-	bool (*handlesMode)(struct GBASIODriver* driver, enum GBASIOMode mode);
+	void (*setMode)(struct GBASIODriver* driver, enum SIOMode mode);
+	bool (*handlesMode)(struct GBASIODriver* driver, enum SIOMode mode);
 	int (*connectedDevices)(struct GBASIODriver* driver);
 	int (*deviceId)(struct GBASIODriver* driver);
 	uint16_t (*writeSIOCNT)(struct GBASIODriver* driver, uint16_t value);

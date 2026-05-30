@@ -18,8 +18,8 @@ static bool GBASIOLockstepDriverInit(struct GBASIODriver* driver);
 static void GBASIOLockstepDriverDeinit(struct GBASIODriver* driver);
 static void GBASIOLockstepDriverReset(struct GBASIODriver* driver);
 static uint32_t GBASIOLockstepDriverId(const struct GBASIODriver* driver);
-static void GBASIOLockstepDriverSetMode(struct GBASIODriver* driver, enum GBASIOMode mode);
-static bool GBASIOLockstepDriverHandlesMode(struct GBASIODriver* driver, enum GBASIOMode mode);
+static void GBASIOLockstepDriverSetMode(struct GBASIODriver* driver, enum SIOMode mode);
+static bool GBASIOLockstepDriverHandlesMode(struct GBASIODriver* driver, enum SIOMode mode);
 static int GBASIOLockstepDriverConnectedDevices(struct GBASIODriver* driver);
 static int GBASIOLockstepDriverDeviceId(struct GBASIODriver* driver);
 static uint16_t GBASIOLockstepDriverWriteSIOCNT(struct GBASIODriver* driver, uint16_t value);
@@ -85,7 +85,7 @@ static void GBASIOLockstepDriverDeinit(struct GBASIODriver* driver) {
 	MutexLock(&coordinator->mutex);
 	struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, lockstep->lockstepId);
 	if (player) {
-		coordinator_removePlayer(coordinator, player);
+		CoordinatorRemovePlayer(coordinator, player);
 	}
 	MutexUnlock(&coordinator->mutex);
 	mTimingDeschedule(&lockstep->d.p->p->timing, &lockstep->event);
@@ -134,15 +134,15 @@ static void GBASIOLockstepDriverReset(struct GBASIODriver* driver) {
 				break;
 			}
 		}
-		coordinator_reconfigPlayers(coordinator);
+		CoordinatorReconfigPlayers(coordinator);
 		player->cycleOffset = mTimingCurrentTime(&driver->p->p->timing) - coordinator->cycle;
 		if (player->playerId != 0) {
 			struct SIOLockstepEvent event = {
 				.type = SIO_EV_GBA_ATTACH,
 				.playerId = player->playerId,
-				.timestamp = coordinator_lockstepPlayerTime(player),
+				.timestamp = CoordinatorLockstepPlayerTime(player),
 			};
-			coordinator_enqueueEvent(coordinator, &event, TARGET_ALL & ~TARGET(player->playerId));
+			CoordinatorEnqueueEvent(coordinator, &event, TARGET_ALL & ~TARGET(player->playerId));
 		}
 	} else {
 		MutexLock(&coordinator->mutex);
@@ -151,7 +151,7 @@ static void GBASIOLockstepDriverReset(struct GBASIODriver* driver) {
 	}
 
 	if (coordinator->transferActive) {
-		coordinator_abortTransfer(coordinator, player);
+		CoordinatorAbortTransfer(coordinator, player);
 		player->asleep = false;
 	}
 	if (player->playerId == 0 && coordinator->nAttached > 1) {
@@ -159,7 +159,7 @@ static void GBASIOLockstepDriverReset(struct GBASIODriver* driver) {
 		// We will immediately go back to sleep when the initial mode gets set,
 		// so we need to clear this here to avoid triggering an assert later.
 		player->asleep = false;
-		coordinator_wakePlayers(coordinator);
+		CoordinatorWakePlayers(coordinator);
 	}
 
 	if (mTimingIsScheduled(&lockstep->d.p->p->timing, &lockstep->event)) {
@@ -168,13 +168,13 @@ static void GBASIOLockstepDriverReset(struct GBASIODriver* driver) {
 	}
 
 	int32_t nextEvent;
-	coordinator_setReady(coordinator, player, player->playerId, player->mode);
+	CoordinatorSetReady(coordinator, player, player->playerId, player->mode);
 	if (TableSize(&coordinator->players) == 1) {
 		coordinator->cycle = mTimingCurrentTime(&lockstep->d.p->p->timing);
 		nextEvent = LOCKSTEP_INTERVAL;
 	} else {
-		coordinator_setReady(coordinator, player, 0, coordinator->transferMode);
-		nextEvent = coordinator_untilNextSync(lockstep->coordinator, player);
+		CoordinatorSetReady(coordinator, player, 0, coordinator->transferMode);
+		nextEvent = CoordinatorUntilNextSync(lockstep->coordinator, player);
 	}
 	MutexUnlock(&coordinator->mutex);
 	mTimingSchedule(&lockstep->d.p->p->timing, &lockstep->event, nextEvent);
@@ -187,7 +187,7 @@ static uint32_t GBASIOLockstepDriverId(const struct GBASIODriver* driver) {
 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
 
-static void GBASIOLockstepDriverSetMode(struct GBASIODriver* driver, enum GBASIOMode mode) {
+static void GBASIOLockstepDriverSetMode(struct GBASIODriver* driver, enum SIOMode mode) {
 	struct GBASIOLockstepDriver* lockstep = (struct GBASIOLockstepDriver*) driver;
 	struct SIOLockstepCoordinator* coordinator = lockstep->coordinator;
 	MutexLock(&coordinator->mutex);
@@ -198,22 +198,22 @@ static void GBASIOLockstepDriverSetMode(struct GBASIODriver* driver, enum GBASIO
 		struct SIOLockstepEvent event = {
 			.type = SIO_EV_MODE_SET,
 			.playerId = player->playerId,
-			.timestamp = coordinator_lockstepPlayerTime(player),
+			.timestamp = CoordinatorLockstepPlayerTime(player),
 			.mode = mode,
 		};
 		if (player->playerId == 0) {
 			coordinator->transferMode = mode;
-			coordinator_waitOnPlayers(coordinator, player);
+			CoordinatorWaitOnPlayers(coordinator, player);
 		}
-		coordinator_setReady(coordinator, player, player->playerId, mode);
-		coordinator_enqueueEvent(coordinator, &event, TARGET_ALL & ~TARGET(player->playerId));
+		CoordinatorSetReady(coordinator, player, player->playerId, mode);
+		CoordinatorEnqueueEvent(coordinator, &event, TARGET_ALL & ~TARGET(player->playerId));
 	}
 	MutexUnlock(&coordinator->mutex);
 }
 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
 
-static bool GBASIOLockstepDriverHandlesMode(struct GBASIODriver* driver, enum GBASIOMode mode) {
+static bool GBASIOLockstepDriverHandlesMode(struct GBASIODriver* driver, enum SIOMode mode) {
 	UNUSED(driver);
 	UNUSED(mode);
 	return true;
@@ -290,14 +290,14 @@ static bool GBASIOLockstepDriverStart(struct GBASIODriver* driver) {
 
 	_setData(coordinator, 0, sio);
 
-	int32_t timestamp = coordinator_lockstepPlayerTime(player);
+	int32_t timestamp = CoordinatorLockstepPlayerTime(player);
 	struct SIOLockstepEvent event = {
 		.type = SIO_EV_TRANSFER_START,
 		.timestamp = timestamp,
 		.finishCycle = timestamp + GBASIOTransferCycles(player->mode, sio->siocnt, coordinator->nAttached - 1),
 	};
-	coordinator_enqueueEvent(coordinator, &event, TARGET_SECONDARY);
-	coordinator_waitOnPlayers(coordinator, player);
+	CoordinatorEnqueueEvent(coordinator, &event, TARGET_SECONDARY);
+	CoordinatorWaitOnPlayers(coordinator, player);
 	coordinator->transferActive = true;
 	ret = true;
 out:
@@ -326,7 +326,7 @@ static void GBASIOLockstepDriverFinishMultiplayer(struct GBASIODriver* driver, u
 		}
 		player->dataReceived = false;
 		if (player->playerId == 0) {
-			coordinator_hardSync(coordinator, player);
+			CoordinatorHardSync(coordinator, player);
 		}
 	}
 	MutexUnlock(&coordinator->mutex);
@@ -351,7 +351,7 @@ static uint8_t GBASIOLockstepDriverFinishNormal8(struct GBASIODriver* driver) {
 		}
 		player->dataReceived = false;
 		if (player->playerId == 0) {
-			coordinator_hardSync(coordinator, player);
+			CoordinatorHardSync(coordinator, player);
 		}
 	}
 	MutexUnlock(&coordinator->mutex);
@@ -377,7 +377,7 @@ static uint32_t GBASIOLockstepDriverFinishNormal32(struct GBASIODriver* driver) 
 		}
 		player->dataReceived = false;
 		if (player->playerId == 0) {
-			coordinator_hardSync(coordinator, player);
+			CoordinatorHardSync(coordinator, player);
 		}
 	}
 	MutexUnlock(&coordinator->mutex);
@@ -454,6 +454,6 @@ static void _lockstep(struct mTiming* timing, void* context, uint32_t cyclesLate
 	struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, lockstep->lockstepId);
 
 	mASSERT_LOG(GBA_SIO, player->playerId >= 0 && player->playerId < 4, "Invalid multiplayer ID %i", player->playerId);
-	int32_t nextEvent = coordinator_lockstepEvent(coordinator, player, timing, cyclesLate);
+	int32_t nextEvent = CoordinatorLockstepEvent(coordinator, player, timing, cyclesLate);
 	mTimingSchedule(timing, &lockstep->event, nextEvent);
 }

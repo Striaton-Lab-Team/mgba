@@ -24,8 +24,8 @@ enum {
 
 static bool GBASIODolphinInit(struct GBASIODriver* driver);
 static void GBASIODolphinReset(struct GBASIODriver* driver);
-static void GBASIODolphinSetMode(struct GBASIODriver* driver, enum GBASIOMode mode);
-static bool GBASIODolphinHandlesMode(struct GBASIODriver* driver, enum GBASIOMode mode);
+static void GBASIODolphinSetMode(struct GBASIODriver* driver, enum SIOMode mode);
+static bool GBASIODolphinHandlesMode(struct GBASIODriver* driver, enum SIOMode mode);
 static int GBASIODolphinConnectedDevices(struct GBASIODriver* driver);
 static void GBASIODolphinProcessEvents(struct mTiming* timing, void* context, uint32_t cyclesLate);
 
@@ -112,12 +112,12 @@ static void GBASIODolphinReset(struct GBASIODriver* driver) {
 	mTimingSchedule(&dol->d.p->p->timing, &dol->event, 0);
 }
 
-static void GBASIODolphinSetMode(struct GBASIODriver* driver, enum GBASIOMode mode) {
+static void GBASIODolphinSetMode(struct GBASIODriver* driver, enum SIOMode mode) {
 	struct GBASIODolphin* dol = (struct GBASIODolphin*) driver;
 	dol->active = mode == GBA_SIO_JOYBUS;
 }
 
-static bool GBASIODolphinHandlesMode(struct GBASIODriver* driver, enum GBASIOMode mode) {
+static bool GBASIODolphinHandlesMode(struct GBASIODriver* driver, enum SIOMode mode) {
 	UNUSED(driver);
 	return mode == GBA_SIO_JOYBUS;
 }

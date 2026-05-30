@@ -1,6 +1,7 @@
 
 #ifndef M_CORE_COORDINATOR_H
 #define M_CORE_COORDINATOR_H
+#include "core.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,6 +21,7 @@ extern "C" {
 #include "mgba-util/table.h"
 #include "mGBA/gba/interface.h"
 
+
 enum SIOLockstepEventType {
 	SIO_EV_GB_ATTACH,
 	SIO_EV_GBA_ATTACH,
@@ -36,7 +38,7 @@ struct SIOLockstepEvent {
 	struct SIOLockstepEvent* next;
 	int playerId;
 
-	enum GBASIOMode mode; //FIXME
+	enum SIOMode mode; //FIXME
 	int32_t finishCycle;
 
 };
@@ -56,8 +58,8 @@ struct SIOLockstepPlayer {
 	const struct mTiming* (*core_timing)(void* driver);
 
 	int playerId;
-	enum GBASIOMode mode;
-	enum GBASIOMode otherModes[4]; //FIXME
+	enum SIOMode mode;
+	enum SIOMode otherModes[4]; //FIXME
 	bool asleep;
 	int32_t cycleOffset;
 	struct SIOLockstepEvent* queue;
@@ -80,7 +82,7 @@ struct SIOLockstepCoordinator {
 	uint32_t waiting;
 
 	bool transferActive;
-	enum GBASIOMode transferMode;
+	enum SIOMode transferMode;
 
 	int32_t cycle;
 	int32_t nextHardSync;
@@ -89,30 +91,30 @@ struct SIOLockstepCoordinator {
 	uint32_t normalData[4];
 };
 
-void coordinator_waitOnPlayers(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer*);
-void coordinator_ackPlayer(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer*);
-void coordinator_wakePlayers(struct SIOLockstepCoordinator*);
+void CoordinatorWaitOnPlayers(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer*);
+void CoordinatorAckPlayer(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer*);
+void CoordinatorWakePlayers(struct SIOLockstepCoordinator*);
 
-int32_t coordinator_lockstepPlayerTime(struct SIOLockstepPlayer*);
-void coordinator_lockstepPlayerWake(struct SIOLockstepPlayer*);
-void coordinator_lockstepPlayerSleep(struct SIOLockstepPlayer*);
+int32_t CoordinatorLockstepPlayerTime(struct SIOLockstepPlayer*);
+void CoordinatorLockstepPlayerWake(struct SIOLockstepPlayer*);
+void CoordinatorLockstepPlayerSleep(struct SIOLockstepPlayer*);
 
-void coordinator_removePlayer(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer*);
-void coordinator_reconfigPlayers(struct SIOLockstepCoordinator*);
-int32_t coordinator_untilNextSync(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer*);
-void coordinator_enqueueEvent(struct SIOLockstepCoordinator*, const struct SIOLockstepEvent*, uint32_t target);
-void coordinator_setData(struct SIOLockstepCoordinator*, uint32_t id);
-void coordinator_setReady(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer* activePlayer, int playerId, enum GBASIOMode mode);
-void coordinator_hardSync(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer*);
-void coordinator_abortTransfer(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player);
-int32_t coordinator_lockstepEvent(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player, struct mTiming* timing, uint32_t cyclesLate);
+void CoordinatorRemovePlayer(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer*);
+void CoordinatorReconfigPlayers(struct SIOLockstepCoordinator*);
+int32_t CoordinatorUntilNextSync(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer*);
+void CoordinatorEnqueueEvent(struct SIOLockstepCoordinator*, const struct SIOLockstepEvent*, uint32_t target);
+void CoordinatorSetReady(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer* activePlayer, int playerId, enum SIOMode mode);
+void CoordinatorHardSync(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer*);
+void CoordinatorAbortTransfer(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player);
+int32_t CoordinatorLockstepEvent(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player, struct mTiming* timing, uint32_t cyclesLate);
 
-void coordinator_init(struct SIOLockstepCoordinator*);
-void coordinator_deinit(struct SIOLockstepCoordinator*);
+void CoordinatorInit(struct SIOLockstepCoordinator*);
+void CoordinatorDeinit(struct SIOLockstepCoordinator*);
 
-void coordinator_attach(struct SIOLockstepCoordinator*, struct GBASIOLockstepDriver*);
-void coordinator_detach(struct SIOLockstepCoordinator*, struct GBASIOLockstepDriver*);
-size_t coordinator_attached(struct SIOLockstepCoordinator*);
+void CoordinatorAttachDriver(struct SIOLockstepCoordinator*, enum mPlatform platform, void* driver);
+void CoordinatorDetachDriver(struct SIOLockstepCoordinator*, enum mPlatform platform, void* driver);
+
+size_t CoordinatorAttached(struct SIOLockstepCoordinator*);
 
 #ifdef __cplusplus
 }

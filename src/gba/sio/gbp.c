@@ -14,7 +14,7 @@
 
 static uint16_t _gbpRead(struct mKeyCallback*);
 static uint16_t _gbpSioWriteSIOCNT(struct GBASIODriver* driver, uint16_t value);
-static bool _gbpSioHandlesMode(struct GBASIODriver* driver, enum GBASIOMode mode);
+static bool _gbpSioHandlesMode(struct GBASIODriver* driver, enum SIOMode mode);
 static int _gbpSioConnectedDevices(struct GBASIODriver* driver);
 static bool _gbpSioStart(struct GBASIODriver* driver);
 static uint32_t _gbpSioFinishNormal32(struct GBASIODriver* driver);
@@ -124,7 +124,7 @@ bool _gbpSioStart(struct GBASIODriver* driver) {
 	return true;
 }
 
-static bool _gbpSioHandlesMode(struct GBASIODriver* driver, enum GBASIOMode mode) {
+static bool _gbpSioHandlesMode(struct GBASIODriver* driver, enum SIOMode mode) {
 	UNUSED(driver);
 	return mode == GBA_SIO_NORMAL_32;
 }
