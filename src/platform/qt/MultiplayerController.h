@@ -17,13 +17,13 @@
 #include <mgba/internal/gba/sio/lockstep.h>
 #endif
 #ifdef M_CORE_GB
-#include <mgba/internal/gb/sio/lockstep.h>
+#include <mgba/internal/gb/sio/coordinator-lockstep.h>
 #endif
 
 #include <memory>
 
-struct GBSIOLockstepNode;
-struct GBASIOLockstepNode;
+struct GBSIOLockstepDriver;
+struct GBASIOLockstepDriver;
 
 namespace QGBA {
 
@@ -49,7 +49,7 @@ signals:
 
 private:
 	union LockstepDriver {
-		struct GBSIOLockstepNode* gb;
+		struct GBSIOLockstepDriver* gb;
 		struct GBASIOLockstepDriver* gba;
 	};
 	struct Player {
@@ -76,12 +76,13 @@ private:
 	const Player* player(int id) const;
 	void fixOrder();
 
-	union {
-		struct mLockstep m_lockstep;
-#ifdef M_CORE_GB
-		struct GBSIOLockstep m_gbLockstep;
-#endif
-	};
+	struct mLockstep m_lockstep;
+// 	union {
+// 		struct mLockstep m_lockstep;
+// #ifdef M_CORE_GB
+// 		struct GBSIOLockstep m_gbLockstep;
+// #endif
+// 	};
 
 #ifdef M_CORE_GBA
 	struct SIOLockstepCoordinator m_gbaCoordinator;

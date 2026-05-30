@@ -39,7 +39,8 @@ int MultiplayerController::Player::id() const {
 #endif
 #ifdef M_CORE_GB
 	case mPLATFORM_GB:
-		return lockstepDriver.gb->id;
+		return 0;
+		//return lockstepDriver.gb->id; FIXME should come from driver?
 #endif
 	case mPLATFORM_NONE:
 		break;
@@ -101,19 +102,20 @@ MultiplayerController::MultiplayerController() {
 #endif
 #ifdef M_CORE_GB
 		case mPLATFORM_GB:
-			if (!id) {
-				player = controller->player(1);
-				player->controller->setSync(false);
-				player->cyclesPosted += cycles;
-				if (player->awake < 1) {
-					player->lockstepDriver.gb->nextEvent += player->cyclesPosted;
-				}
-				mCoreThreadStopWaiting(player->controller->thread());
-				player->awake = 1;
-			} else {
-				player->controller->setSync(true);
-				player->cyclesPosted += cycles;
-			}
+			abort();
+			// if (!id) {
+			// 	player = controller->player(1);
+			// 	player->controller->setSync(false);
+			// 	player->cyclesPosted += cycles;
+			// 	if (player->awake < 1) {
+			// 		player->lockstepDriver.gb->nextEvent += player->cyclesPosted;
+			// 	}
+			// 	mCoreThreadStopWaiting(player->controller->thread());
+			// 	player->awake = 1;
+			// } else {
+			// 	player->controller->setSync(true);
+			// 	player->cyclesPosted += cycles;
+			// }
 			break;
 #endif
 		default:
@@ -162,7 +164,7 @@ MultiplayerController::MultiplayerController() {
 #endif
 #ifdef M_CORE_GB
 				case mPLATFORM_GB:
-					player->cyclesPosted += reinterpret_cast<GBSIOLockstep*>(lockstep)->players[0]->eventDiff;
+					//player->cyclesPosted += reinterpret_cast<GBSIOLockstep*>(lockstep)->players[0]->eventDiff;
 					break;
 #endif
 				default:
@@ -176,7 +178,7 @@ MultiplayerController::MultiplayerController() {
 #endif
 #ifdef M_CORE_GB
 					case mPLATFORM_GB:
-						player->lockstepDriver.gb->nextEvent += player->cyclesPosted;
+						//player->lockstepDriver.gb->nextEvent += player->cyclesPosted;
 						break;
 #endif
 					default:
@@ -313,7 +315,6 @@ bool MultiplayerController::attachGame(CoreController* controller) {
 			doDelayedAttach = true;
 		}
 		break;
-		break;
 	}
 #endif
 	default:
@@ -357,8 +358,8 @@ bool MultiplayerController::attachGame(CoreController* controller) {
 				continue;
 			}
 			struct mCore* core = player.controller->thread()->core;
-			GBASIOLockstepCoordinatorAttach(&m_gbaCoordinator, player.node.gba);
-			core->setPeripheral(core, mPERIPH_GBA_LINK_PORT, &player.node.gba->d);
+			coordinator_attach(&m_gbaCoordinator, player.lockstepDriver.gba);
+			core->setPeripheral(core, mPERIPH_GBA_LINK_PORT, &player.lockstepDriver.gba->d);
 			player.attached = true;
 		}
 	}
@@ -399,24 +400,25 @@ void MultiplayerController::detachGame(CoreController* controller) {
 		GBA* gba = static_cast<GBA*>(thread->core->board);
 		Player& p = m_pids.find(pid).value();
 		GBASIODriver* node = gba->sio.driver;
-		if (node == &p.node.gba->d) {
+		if (node == &p.lockstepDriver.gba->d) {
 			thread->core->setPeripheral(thread->core, mPERIPH_GBA_LINK_PORT, NULL);
 		}
 		if (p.attached) {
-			GBASIOLockstepCoordinatorDetach(&m_gbaCoordinator, p.node.gba);
+			coordinator_detach(&m_gbaCoordinator, p.lockstepDriver.gba);
 		}
-		delete reinterpret_cast<LockstepUser*>(p.node.gba->user);
-		delete p.node.gba;
+		delete reinterpret_cast<LockstepUser*>(p.lockstepDriver.gba->user);
+		delete p.lockstepDriver.gba;
 		break;
 	}
 #endif
 #ifdef M_CORE_GB
 	case mPLATFORM_GB: {
+		// FIXME
 		GB* gb = static_cast<GB*>(thread->core->board);
-		GBSIOLockstepNode* node = reinterpret_cast<GBSIOLockstepNode*>(gb->sio.driver);
+		GBSIOLockstepDriver* node = reinterpret_cast<GBSIOLockstepDriver*>(gb->sio.driver);
 		GBSIOSetDriver(&gb->sio, nullptr);
 		if (node) {
-			GBSIOLockstepDetachNode(&m_gbLockstep, node);
+			//GBSIOLockstepDetachNode(&m_gbLockstep, node);
 			delete node;
 		}
 		break;
@@ -447,7 +449,7 @@ void MultiplayerController::detachGame(CoreController* controller) {
 	m_pids.remove(pid);
 	if (m_pids.size() == 0) {
 		if (m_platform == mPLATFORM_GBA) {
-			GBASIOLockstepCoordinatorDeinit(&m_gbaCoordinator);
+			coordinator_deinit(&m_gbaCoordinator);
 		}
 		m_platform = mPLATFORM_NONE;
 	} else {
@@ -490,8 +492,8 @@ int MultiplayerController::attached() {
 	case mPLATFORM_GB:
 		num = m_lockstep.attached;
 		break;
-	case mPLATFORM_GBA:
-		num = saturateCast<int>(GBASIOLockstepCoordinatorAttached(&m_gbaCoordinator));
+	case mPLATFORM_GBA: //FIXME
+		num = saturateCast<int>(coordinator_attached(&m_gbaCoordinator));
 		break;
 	default:
 		break;
@@ -541,9 +543,10 @@ void MultiplayerController::fixOrder() {
 #endif
 #ifdef M_CORE_GB
 	case mPLATFORM_GB:
-		if (player(0)->node.gb->id == 1) {
-			std::swap(m_players[0], m_players[1]);
-		}
+		//FIXME
+		// if (player(0)->lockstepDriver.gb->id == 1) {
+		// 	std::swap(m_players[0], m_players[1]);
+		// }
 		break;
 #endif
 	case mPLATFORM_NONE:

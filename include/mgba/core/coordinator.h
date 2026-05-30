@@ -2,14 +2,23 @@
 #ifndef M_CORE_COORDINATOR_H
 #define M_CORE_COORDINATOR_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define LOCKSTEP_INTERVAL 4096
 #define UNLOCKED_INTERVAL 4096
 #define TARGET_ALL 0xF
 #define HARD_SYNC_INTERVAL 0x80000
 #define TARGET(P) (1 << (P))
 
+#define MAX_LOCKSTEP_EVENTS 8
+
 #define TARGET_PRIMARY 0x1
 #define TARGET_SECONDARY ((TARGET_ALL) & ~(TARGET_PRIMARY))
+#include "mgba-util/platform/posix/threading.h"
+#include "mgba-util/table.h"
+#include "mGBA/gba/interface.h"
 
 enum SIOLockstepEventType {
 	SIO_EV_GB_ATTACH,
@@ -26,10 +35,10 @@ struct SIOLockstepEvent {
 	int32_t timestamp;
 	struct SIOLockstepEvent* next;
 	int playerId;
-	union {
-		enum GBASIOMode mode;
-		int32_t finishCycle;
-	};
+
+	enum GBASIOMode mode; //FIXME
+	int32_t finishCycle;
+
 };
 
 struct SIOLockstepPLayer;
@@ -48,7 +57,7 @@ struct SIOLockstepPlayer {
 
 	int playerId;
 	enum GBASIOMode mode;
-	enum GBASIOMode otherModes[MAX_GBAS];
+	enum GBASIOMode otherModes[4]; //FIXME
 	bool asleep;
 	int32_t cycleOffset;
 	struct SIOLockstepEvent* queue;
@@ -66,7 +75,7 @@ struct SIOLockstepCoordinator {
 
 	unsigned nextId;
 
-	unsigned attachedPlayers[MAX_GBAS];
+	unsigned attachedPlayers[4];
 	int nAttached;
 	uint32_t waiting;
 
@@ -104,5 +113,9 @@ void coordinator_deinit(struct SIOLockstepCoordinator*);
 void coordinator_attach(struct SIOLockstepCoordinator*, struct GBASIOLockstepDriver*);
 void coordinator_detach(struct SIOLockstepCoordinator*, struct GBASIOLockstepDriver*);
 size_t coordinator_attached(struct SIOLockstepCoordinator*);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

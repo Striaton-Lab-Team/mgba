@@ -63,6 +63,9 @@ void _GBSIOProcessEvents(struct mTiming* timing, void* context, uint32_t cyclesL
 	UNUSED(cyclesLate);
 	struct GBSIO* sio = context;
 	bool doIRQ = false;
+	if (sio->driver && sio->driver->loadPendingSB && sio->remainingBits == 8) {
+		sio->driver->loadPendingSB(sio->driver);
+	}
 	if (sio->remainingBits) {
 		doIRQ = true;
 		--sio->remainingBits;

@@ -10,10 +10,12 @@
 #ifdef M_CORE_GBA
 #include <mgba/gba/interface.h>
 #endif
-#include <mgba/script/base.h>
-#include <mgba/script/context.h>
+#include "mgba/core/timing.h"
+
 #include <mgba-util/table.h>
 #include <mgba-util/vfs.h>
+#include <mgba/script/base.h>
+#include <mgba/script/context.h>
 
 mLOG_DEFINE_CATEGORY(SCRIPT, "Scripting", "script");
 

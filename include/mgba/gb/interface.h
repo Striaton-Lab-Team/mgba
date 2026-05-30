@@ -74,6 +74,8 @@ struct GBSIODriver {
 	void (*deinit)(struct GBSIODriver* driver);
 	void (*writeSB)(struct GBSIODriver* driver, uint8_t value);
 	uint8_t (*writeSC)(struct GBSIODriver* driver, uint8_t value);
+
+	void (*loadPendingSB)(struct GBSIODriver* driver);
 };
 
 struct GBCartridgeOverride {

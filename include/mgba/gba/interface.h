@@ -11,7 +11,6 @@
 CXX_GUARD_START
 
 #include <mgba/core/interface.h>
-#include <mgba/core/timing.h>
 
 #define GBA_IDLE_LOOP_NONE 0xFFFFFFFF
 

@@ -14,8 +14,6 @@ CXX_GUARD_START
 #include <mgba/core/timing.h>
 #include <mgba/internal/gba/sio.h>
 
-#define MAX_LOCKSTEP_EVENTS 8
-
 struct GBASIOLockstepDriver {
 	struct GBASIODriver d;
 	struct SIOLockstepCoordinator* coordinator;

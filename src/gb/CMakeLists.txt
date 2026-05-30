@@ -23,7 +23,7 @@ set(SOURCE_FILES
 	video.c)
 
 set(SIO_FILES
-	sio/lockstep.c
+	sio/coordinator-lockstep.c
 	sio/printer.c)
 
 set(EXTRA_FILES

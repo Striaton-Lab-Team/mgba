@@ -20,7 +20,6 @@ struct GBSIOLockstepDriver {
 	unsigned lockstepId;
 
 	struct mLockstepUser* user;
-#endif
 };
 
 void GBSIOLockstepDriverCreate(struct GBSIOLockstepDriver*, struct mLockstepUser*);

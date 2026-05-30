@@ -87,8 +87,8 @@ void coordinator_ackPlayer(struct SIOLockstepCoordinator* coordinator, struct SI
 				if (!coordinator->attachedPlayers[i]) {
 					continue;
 				}
-				struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, coordinator->attachedPlayers[i]);
-				player->dataReceived = true;
+				struct SIOLockstepPlayer* playerTemp = TableLookup(&coordinator->players, coordinator->attachedPlayers[i]);
+				playerTemp->dataReceived = true;
 			}
 
 			coordinator->transferActive = false;
@@ -451,6 +451,11 @@ void coordinator_detach(struct SIOLockstepCoordinator* coordinator, struct GBASI
 	}
 	MutexUnlock(&coordinator->mutex);
 	driver->coordinator = NULL;
+}
+
+
+size_t coordinator_attached(struct SIOLockstepCoordinator* coordinator) {
+	return coordinator->nAttached;
 }
 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//

@@ -6,6 +6,8 @@
 #ifndef GBA_SIO_H
 #define GBA_SIO_H
 
+#include "mgba/core/timing.h"
+
 #include <mgba-util/common.h>
 
 CXX_GUARD_START
