@@ -102,7 +102,8 @@ void CoordinatorAckPlayer(struct SIOLockstepCoordinator* coordinator, struct SIO
 }
 
 int32_t CoordinatorLockstepPlayerTime(struct SIOLockstepPlayer* player) {
-	return mTimingCurrentTime(player->core_timing(player->driver)) - player->cycleOffset;
+	struct mTiming timing = player->coordinatorDriver.getCoreTiming(player->driver);
+	return mTimingCurrentTime(&timing) - player->cycleOffset;
 }
 
 int32_t CoordinatorUntilNextSync(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
@@ -157,7 +158,8 @@ void CoordinatorReconfigPlayers(struct SIOLockstepCoordinator* coordinator) {
 		coordinator->attachedPlayers[0] = p0;
 
 		struct SIOLockstepPlayer* player = TableIteratorGetValue(&coordinator->players, &iter);
-		coordinator->cycle = mTimingCurrentTime(player->core_timing(player->driver));
+		struct mTiming timing = player->coordinatorDriver.getCoreTiming(player->driver);
+		coordinator->cycle = mTimingCurrentTime(&timing);
 		coordinator->nextHardSync = HARD_SYNC_INTERVAL;
 
 		if (player->playerId != 0) {
@@ -170,7 +172,8 @@ void CoordinatorReconfigPlayers(struct SIOLockstepCoordinator* coordinator) {
 		if (!coordinator->transferActive) {
 			coordinator->transferMode = player->mode;
 		}
-	} else {
+	}
+	else {
 		struct UIntList playerPreferences[MAX_GBAS];
 
 		int i;
@@ -255,7 +258,7 @@ void CoordinatorSetReady(struct SIOLockstepCoordinator* coordinator, struct SIOL
 		ready = activePlayer->otherModes[i] == activePlayer->mode;
 	}
 	if (activePlayer->mode == GBA_SIO_MULTI) {
-		activePlayer->lockstepEvents.on_sio_ready(ready, activePlayer->driver);
+		activePlayer->coordinatorDriver.onReady(activePlayer->driver, ready);
 	}
 
 }
@@ -277,8 +280,7 @@ void CoordinatorLockstepPlayerSleep(struct SIOLockstepPlayer* player) {
 	}
 	player->asleep = true;
 	player->user->sleep(player->user);
-	// player->d.p->p->cpu->nextEvent = 0;
-	// GBAInterrupt(player->driver->d.p->p);
+	player->coordinatorDriver.onPlayerSleep(player);
 }
 
 void CoordinatorEnqueueEvent(struct SIOLockstepCoordinator* coordinator, const struct SIOLockstepEvent* event, uint32_t target) {
@@ -354,7 +356,14 @@ int32_t CoordinatorLockstepEvent(struct SIOLockstepCoordinator* coordinator, str
 		switch (event->type) {
 		case SIO_EV_GBA_ATTACH:
 			CoordinatorSetReady(coordinator, player, event->playerId, -1);
-			player->lockstepEvents.on_sio_attach(player, player->driver);
+			player->coordinatorDriver.onAttach(player);
+			reply.mode = player->mode;
+			reply.type = SIO_EV_MODE_SET;
+			CoordinatorEnqueueEvent(coordinator, &reply, TARGET(event->playerId));
+			break;
+		case SIO_EV_GB_ATTACH:
+			CoordinatorSetReady(coordinator, player, event->playerId, -1);
+			player->coordinatorDriver.onAttach(player);
 			reply.mode = player->mode;
 			reply.type = SIO_EV_MODE_SET;
 			CoordinatorEnqueueEvent(coordinator, &reply, TARGET(event->playerId));
@@ -364,7 +373,7 @@ int32_t CoordinatorLockstepEvent(struct SIOLockstepCoordinator* coordinator, str
 			break;
 		case SIO_EV_TRANSFER_START:
 			nextEvent = event->finishCycle - CoordinatorLockstepPlayerTime(player) - cyclesLate;
-			player->lockstepEvents.on_sio_transfer_start(player, nextEvent, player->driver);
+			player->coordinatorDriver.onTransferStart(player, nextEvent);
 			CoordinatorAckPlayer(coordinator, player);
 			break;
 		case SIO_EV_MODE_SET:
@@ -372,7 +381,7 @@ int32_t CoordinatorLockstepEvent(struct SIOLockstepCoordinator* coordinator, str
 				mLOG(GBA_SIO, DEBUG, "Switching modes while transfer is active");
 				CoordinatorAbortTransfer(coordinator, player);
 			}
-			player->lockstepEvents.on_sio_detach(player, player->driver);
+			player->coordinatorDriver.onDetach(player);
 			CoordinatorSetReady(coordinator, player, event->playerId, event->mode);
 			if (event->playerId == 0) {
 				CoordinatorAckPlayer(coordinator, player);
@@ -384,7 +393,7 @@ int32_t CoordinatorLockstepEvent(struct SIOLockstepCoordinator* coordinator, str
 			reply.mode = player->mode;
 			reply.type = SIO_EV_MODE_SET;
 			CoordinatorEnqueueEvent(coordinator, &reply, ~TARGET(event->playerId));
-			player->lockstepEvents.on_sio_detach(player, player->driver);
+			player->coordinatorDriver.onDetach(player);
 			wasDetach = true;
 			break;
 		}

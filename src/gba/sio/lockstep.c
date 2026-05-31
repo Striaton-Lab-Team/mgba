@@ -29,11 +29,13 @@ static void GBASIOLockstepDriverFinishMultiplayer(struct GBASIODriver* driver, u
 static uint8_t GBASIOLockstepDriverFinishNormal8(struct GBASIODriver* driver);
 static uint32_t GBASIOLockstepDriverFinishNormal32(struct GBASIODriver* driver);
 
-static void _onSioAttach(struct SIOLockstepPlayer* player, void* driver);
-static void _onSioDetach(struct SIOLockstepPlayer* player, void* driver);
-static void _onSioModeSet(struct SIOLockstepPlayer* player, void* driver);
-static void _onSioTransferStart(struct SIOLockstepPlayer* player, int32_t eventFinishCycles, void* driver);
-static void _setReady(const bool ready, void* driver);
+static void _onSioAttach(struct SIOLockstepPlayer* player);
+static void _onSioDetach(struct SIOLockstepPlayer* player);
+static void _onSioModeSet(struct SIOLockstepPlayer* player);
+static void _onSioTransferStart(struct SIOLockstepPlayer* player, int32_t eventFinishCycles);
+static void _setReady(struct SIOLockstepPlayer* player, bool ready);
+static struct mTiming _coreTiming(struct SIOLockstepPlayer* player);
+static void _onPlayerSleep(struct SIOLockstepPlayer* player);
 
 static void _lockstep(struct mTiming*, void* context, uint32_t);
 static void _setData(struct SIOLockstepCoordinator* coordinator, uint32_t id, struct GBASIO* sio);
@@ -104,15 +106,17 @@ static void GBASIOLockstepDriverReset(struct GBASIODriver* driver) {
 		player->mode = driver->p->mode;
 		player->playerId = -1;
 		player->user = lockstep->user;
-		const struct LockstepEventCallbacks callbacks ={
-			.on_sio_attach = _onSioAttach,
-			.on_sio_detach = _onSioDetach,
-			.on_sio_transfer_start = _onSioTransferStart,
-			.on_sio_ready = _setReady,
-			.on_sio_mode_set = _onSioModeSet,
+		const struct LockstepCoordinatorDriver coordDriver ={
+			.onAttach = _onSioAttach,
+			.onDetach = _onSioDetach,
+			.onSetMode = _onSioModeSet,
+			.onTransferStart = _onSioTransferStart,
+			.onReady = _setReady,
+			.onPlayerSleep = _onPlayerSleep,
+			.getCoreTiming = _coreTiming
 		};
 		player->driver = lockstep;
-		player->lockstepEvents = callbacks;
+		player->coordinatorDriver = coordDriver;
 
 		int i;
 		for (i = 0; i < MAX_LOCKSTEP_EVENTS - 1; ++i) {
@@ -409,16 +413,16 @@ static void _setData(struct SIOLockstepCoordinator* coordinator, uint32_t id, st
 // Coordinator Callbacks 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
 
-static void _onSioAttach(struct SIOLockstepPlayer* player, void* driver) {
-	const struct GBASIOLockstepDriver* lockstep = (struct GBASIOLockstepDriver*) driver;
+static void _onSioAttach(struct SIOLockstepPlayer* player) {
+	const struct GBASIOLockstepDriver* lockstep = (struct GBASIOLockstepDriver*) player->driver;
 	if (player->playerId == 0) {
 		struct GBASIO* sio = lockstep->d.p;
 		sio->siocnt = GBASIOMultiplayerClearSlave(sio->siocnt);
 	}
 }
 
-static void _onSioDetach(struct SIOLockstepPlayer* player, void* driver) {
-	struct GBASIOLockstepDriver* lockstep = (struct GBASIOLockstepDriver*) driver;
+static void _onSioDetach(struct SIOLockstepPlayer* player) {
+	struct GBASIOLockstepDriver* lockstep = (struct GBASIOLockstepDriver*) player->driver;
 	if (player->mode == GBA_SIO_MULTI) {
 		struct GBASIO* sio = lockstep->d.p;
 		sio->siocnt = GBASIOMultiplayerSetId(sio->siocnt, player->playerId);
@@ -426,13 +430,12 @@ static void _onSioDetach(struct SIOLockstepPlayer* player, void* driver) {
 	}
 }
 
-static void _onSioModeSet(struct SIOLockstepPlayer* player, void* driver) {
+static void _onSioModeSet(struct SIOLockstepPlayer* player) {
 	UNUSED(player);
-	UNUSED(driver);
 }
 
-static void _onSioTransferStart(struct SIOLockstepPlayer* player, int32_t eventFinishCycles, void* driver) {
-	struct GBASIOLockstepDriver* lockstep = (struct GBASIOLockstepDriver*) driver;
+static void _onSioTransferStart(struct SIOLockstepPlayer* player, int32_t eventFinishCycles) {
+	struct GBASIOLockstepDriver* lockstep = (struct GBASIOLockstepDriver*) player->driver;
 	struct GBASIO* sio = lockstep->d.p;
 	sio->siocnt |= 0x80;
 	_setData(lockstep->coordinator, player->playerId, sio);
@@ -440,12 +443,25 @@ static void _onSioTransferStart(struct SIOLockstepPlayer* player, int32_t eventF
 	mTimingSchedule(&sio->p->timing, &sio->completeEvent, eventFinishCycles);
 }
 
-static void _setReady(const bool ready, void* driver) {
-	const struct GBASIOLockstepDriver* lockstep = (struct GBASIOLockstepDriver*) driver;
+static void _setReady(struct SIOLockstepPlayer* player, bool ready) {
+	const struct GBASIOLockstepDriver* lockstep = (struct GBASIOLockstepDriver*) player->driver;
 	struct GBASIO* sio = lockstep->d.p;
 
 	sio->siocnt = GBASIOMultiplayerSetReady(sio->siocnt, ready);
 	sio->rcnt = GBASIORegisterRCNTSetSd(sio->rcnt, ready);
+}
+
+static struct mTiming _coreTiming(struct SIOLockstepPlayer* player) {
+	struct GBASIODriver* lockstep = (struct GBASIODriver*) player->driver;
+	return lockstep->p->p->timing;
+}
+
+//-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
+
+static void _onPlayerSleep(struct SIOLockstepPlayer* player) {
+	struct GBASIODriver* lockstep = (struct GBASIODriver*) player->driver;
+	lockstep->p->p->cpu->nextEvent = 0;
+	GBAInterrupt(lockstep->p->p);
 }
 
 static void _lockstep(struct mTiming* timing, void* context, uint32_t cyclesLate) {

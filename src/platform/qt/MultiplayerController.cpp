@@ -346,7 +346,7 @@ bool MultiplayerController::attachGame(CoreController* controller) {
 			case mPLATFORM_GB: {
 				struct mCore* core = playerTemp.controller->thread()->core;
 				CoordinatorAttachDriver(&m_coordinator, mPLATFORM_GB, playerTemp.lockstepDriver.gb);
-				core->setPeripheral(core, mPERIPH_GBA_LINK_PORT, &playerTemp.lockstepDriver.gb->d);
+				core->setPeripheral(core, mPERIPH_GB_SIO, &playerTemp.lockstepDriver.gb->d);
 				playerTemp.attached = true;
 				break;
 			}

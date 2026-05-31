@@ -44,18 +44,19 @@ struct SIOLockstepEvent {
 };
 
 struct SIOLockstepPLayer;
-struct LockstepEventCallbacks {
-	void (*on_sio_attach)(struct SIOLockstepPlayer* player, void* driver);
-	void (*on_sio_detach)(struct SIOLockstepPlayer* player, void* driver);
-	void (*on_sio_mode_set)(struct SIOLockstepPlayer* player, void* driver);
-	void (*on_sio_transfer_start)(struct SIOLockstepPlayer* player, int32_t eventFinishCycles, void* driver);
-	void (*on_sio_ready)(const bool ready, void* driver);
+struct LockstepCoordinatorDriver {
+	void (*onAttach)(struct SIOLockstepPlayer* player);
+	void (*onDetach)(struct SIOLockstepPlayer* player);
+	void (*onSetMode)(struct SIOLockstepPlayer* player);
+	void (*onTransferStart)(struct SIOLockstepPlayer* player, int32_t eventFinishCycles);
+	void (*onReady)(struct SIOLockstepPlayer* player, bool ready);
+	void (*onPlayerSleep)(struct SIOLockstepPlayer* player);
+	struct mTiming (*getCoreTiming)(struct SIOLockstepPlayer* player);
 };
 
 struct SIOLockstepPlayer {
 	void* driver;
-	struct LockstepEventCallbacks lockstepEvents;
-	const struct mTiming* (*core_timing)(void* driver);
+	struct LockstepCoordinatorDriver coordinatorDriver;
 
 	int playerId;
 	enum SIOMode mode;
