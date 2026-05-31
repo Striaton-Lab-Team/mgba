@@ -7,10 +7,10 @@
 extern "C" {
 #endif
 
-#define LOCKSTEP_INTERVAL 4096
-#define UNLOCKED_INTERVAL 4096
+#define LOCKSTEP_INTERVAL 256
+#define UNLOCKED_INTERVAL 256
 #define TARGET_ALL 0xF
-#define HARD_SYNC_INTERVAL 0x80000
+#define HARD_SYNC_INTERVAL 0x1000
 #define TARGET(P) (1 << (P))
 
 #define MAX_LOCKSTEP_EVENTS 8
@@ -99,6 +99,7 @@ void CoordinatorWakePlayers(struct SIOLockstepCoordinator*);
 int32_t CoordinatorLockstepPlayerTime(struct SIOLockstepPlayer*);
 void CoordinatorLockstepPlayerWake(struct SIOLockstepPlayer*);
 void CoordinatorLockstepPlayerSleep(struct SIOLockstepPlayer*);
+bool CoordinatorLockstepOtherPlayerWaiting(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player);
 
 void CoordinatorRemovePlayer(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer*);
 void CoordinatorReconfigPlayers(struct SIOLockstepCoordinator*);

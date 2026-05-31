@@ -54,6 +54,10 @@ bool GBSIOLockstepDriverInit(struct GBSIODriver* driver) {
 	struct GBSIOLockstepDriver* lockstep = (struct GBSIOLockstepDriver*) driver;
 	struct SIOLockstepCoordinator* coordinator = lockstep->coordinator;
 	struct SIOLockstepPlayer* player;
+	coordinator->normalData[0] = 0xFFFFFFFF;
+	coordinator->normalData[1] = 0xFFFFFFFF;
+	coordinator->normalData[2] = 0xFFFFFFFF;
+	coordinator->normalData[3] = 0xFFFFFFFF;
 	if (!lockstep->lockstepId) {
 		unsigned id;
 		player = calloc(1, sizeof(*player));
@@ -158,11 +162,14 @@ static void GBSIOLockstepDriverDeinit(struct GBSIODriver* driver) {
 static void GBSIOLockstepDriverWriteSB(struct GBSIODriver* driver, uint8_t value) {
 	struct GBSIOLockstepDriver* lockstep = (struct GBSIOLockstepDriver*) driver;
 	struct SIOLockstepCoordinator* coordinator = lockstep->coordinator;
+	struct GBSIO* sio = lockstep->d.p;
 
 	MutexLock(&coordinator->mutex);
 	struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, lockstep->lockstepId);
 
 	coordinator->normalData[player->playerId] = value;
+	sio->pendingSB = value;
+	printf("PlayerId %d, Write value to SB: %d \n", player->playerId, value);
 	MutexUnlock(&coordinator->mutex);
 }
 
@@ -179,6 +186,7 @@ static void GBSIOLockstepDriverLoadSB(struct GBSIODriver* driver) {
 
 	struct GBSIO* sio = driver->p;
 	sio->pendingSB = coordinator->normalData[partnerPlayerId];
+
 	MutexUnlock(&coordinator->mutex);
 }
 
@@ -187,19 +195,26 @@ static void GBSIOLockstepDriverLoadSB(struct GBSIODriver* driver) {
 static uint8_t GBSIOLockstepDriverWriteSC(struct GBSIODriver* driver, uint8_t value) {
 	struct GBSIOLockstepDriver* lockstep = (struct GBSIOLockstepDriver*) driver;
 	struct SIOLockstepCoordinator* coordinator = lockstep->coordinator;
-
+	struct GBSIO* sio = lockstep->d.p;
 	MutexLock(&coordinator->mutex);
+
 	struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, lockstep->lockstepId);
-	if ((value & 0x81) == 0x81 && coordinator->nAttached == 1) {
+	printf("PlayerId %d, Write value to SC: %d \n", player->playerId, value);
+	if ((value & 0x81) == 0x81 && coordinator->nAttached > 1 && player->playerId == 0) {
 		int32_t timestamp = CoordinatorLockstepPlayerTime(player);
 		struct SIOLockstepEvent event = {
 			.type = SIO_EV_TRANSFER_START,
 			.timestamp = timestamp,
 			.finishCycle = timestamp + GBSIOCyclesPerTransfer[(value >> 1) & 1]
 		};
+		lockstep->coordinator->normalData[player->playerId] = sio->pendingSB;
 		CoordinatorEnqueueEvent(coordinator, &event, TARGET_SECONDARY);
+		printf("PlayerId %d, Master transmit event started \n", player->playerId);
 		CoordinatorWaitOnPlayers(coordinator, player);
 		coordinator->transferActive = true;
+	}
+	else {
+		printf("PlayerId %d, Could not start transfer \n", player->playerId);
 	}
 	MutexUnlock(&coordinator->mutex);
 
@@ -233,8 +248,10 @@ static void _onSioTransferStart(struct SIOLockstepPlayer* player, int32_t eventF
 	struct GBSIOLockstepDriver* lockstep = (struct GBSIOLockstepDriver*) player->driver;
 	struct GBSIO* sio = lockstep->d.p;
 	lockstep->coordinator->normalData[player->playerId] = sio->pendingSB;
+	sio->remainingBits = 8;
 	mTimingDeschedule(&sio->p->timing, &sio->event);
 	mTimingSchedule(&sio->p->timing, &sio->event, sio->period * (2 - sio->p->doubleSpeed));
+	printf("PlayerId %d, Slave transmit event started \n", player->playerId);
 }
 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//

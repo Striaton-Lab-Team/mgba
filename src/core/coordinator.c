@@ -47,7 +47,8 @@ void CoordinatorWaitOnPlayers(struct SIOLockstepCoordinator* coordinator, struct
 	}
 
 	_advanceCycle(coordinator, player);
-	mLOG(GBA_SIO, DEBUG, "Primary waiting for players to ack");
+	mLOG(GBA_SIO, INFO, "Primary waiting for players to ack");
+	//printf("PlayerId %d, Primary waiting for players to ack \n", player->playerId);
 	coordinator->waiting = ((1 << coordinator->nAttached) - 1) & ~TARGET(player->playerId);
 	CoordinatorLockstepPlayerSleep(player);
 	CoordinatorWakePlayers(coordinator);
@@ -64,6 +65,7 @@ void CoordinatorWakePlayers(struct SIOLockstepCoordinator* coordinator) {
 		struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, coordinator->attachedPlayers[i]);
 		CoordinatorLockstepPlayerWake(player);
 	}
+	//printf("All players woke up \n");
 }
 
 
@@ -81,7 +83,7 @@ void CoordinatorAckPlayer(struct SIOLockstepCoordinator* coordinator, struct SIO
 	}
 	coordinator->waiting &= ~TARGET(player->playerId);
 	if (!coordinator->waiting) {
-		mLOG(GBA_SIO, DEBUG, "All players acked, waking primary");
+		mLOG(GBA_SIO, INFO, "All players acked, waking primary");
 		if (coordinator->transferActive) {
 			int i;
 			for (i = 0; i < coordinator->nAttached; ++i) {
@@ -278,13 +280,30 @@ void CoordinatorLockstepPlayerSleep(struct SIOLockstepPlayer* player) {
 	if (player->asleep) {
 		return;
 	}
+	//printf("PlayerId %d, Going to sleep \n", player->playerId);
 	player->asleep = true;
 	player->user->sleep(player->user);
 	player->coordinatorDriver.onPlayerSleep(player);
 }
 
+bool CoordinatorLockstepOtherPlayerWaiting(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
+    //FIXME this is shoddy
+	int i;
+	for (i = 1; i < coordinator->nAttached; ++i) {
+		if (!coordinator->attachedPlayers[i]) {
+			continue;
+		}
+		struct SIOLockstepPlayer* attachedPlayer = TableLookup(&coordinator->players, coordinator->attachedPlayers[i]);
+		if (attachedPlayer->playerId == player->playerId) {
+			continue;
+		}
+		return attachedPlayer->asleep;
+	}
+	return false;
+}
+
 void CoordinatorEnqueueEvent(struct SIOLockstepCoordinator* coordinator, const struct SIOLockstepEvent* event, uint32_t target) {
-	mLOG(GBA_SIO, DEBUG, "Enqueuing event of type %X from %i for target %X at timestamp %X",
+	mLOG(GBA_SIO, INFO, "Enqueuing event of type %X from %i for target %X at timestamp %X",
 	                      event->type, event->playerId, target, event->timestamp);
 
 	int i;
@@ -317,7 +336,7 @@ int32_t CoordinatorLockstepEvent(struct SIOLockstepCoordinator* coordinator, str
 	MutexLock(&coordinator->mutex);
 	bool wasDetach = false;
 	if (player->queue && player->queue->type == SIO_EV_DETACH) {
-		mLOG(GBA_SIO, DEBUG, "Player %i detached at timestamp %X, picking up the pieces",
+		mLOG(GBA_SIO, INFO, "Player %i detached at timestamp %X, picking up the pieces",
 		                      player->queue->playerId, player->queue->timestamp);
 		wasDetach = true;
 	}
@@ -351,7 +370,7 @@ int32_t CoordinatorLockstepEvent(struct SIOLockstepCoordinator* coordinator, str
 			.playerId = player->playerId,
 			.timestamp = CoordinatorLockstepPlayerTime(player),
 		};
-		mLOG(GBA_SIO, DEBUG, "Got event of type %X from %i at timestamp %X",
+		mLOG(GBA_SIO, INFO, "Got event of type %X from %i at timestamp %X",
 		                      event->type, event->playerId, event->timestamp);
 		switch (event->type) {
 		case SIO_EV_GBA_ATTACH:
@@ -378,7 +397,7 @@ int32_t CoordinatorLockstepEvent(struct SIOLockstepCoordinator* coordinator, str
 			break;
 		case SIO_EV_MODE_SET:
 			if (coordinator->transferActive && player->mode != event->mode) {
-				mLOG(GBA_SIO, DEBUG, "Switching modes while transfer is active");
+				mLOG(GBA_SIO, INFO, "Switching modes while transfer is active");
 				CoordinatorAbortTransfer(coordinator, player);
 			}
 			player->coordinatorDriver.onDetach(player);
