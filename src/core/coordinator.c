@@ -102,7 +102,7 @@ void CoordinatorAckPlayer(struct SIOLockstepCoordinator* coordinator, struct SIO
 }
 
 int32_t CoordinatorLockstepPlayerTime(struct SIOLockstepPlayer* player) {
-	struct mTiming timing = player->coordinatorDriver.getCoreTiming(player->driver);
+	struct mTiming timing = player->coordinatorDriver.getCoreTiming(player);
 	return mTimingCurrentTime(&timing) - player->cycleOffset;
 }
 
@@ -158,7 +158,7 @@ void CoordinatorReconfigPlayers(struct SIOLockstepCoordinator* coordinator) {
 		coordinator->attachedPlayers[0] = p0;
 
 		struct SIOLockstepPlayer* player = TableIteratorGetValue(&coordinator->players, &iter);
-		struct mTiming timing = player->coordinatorDriver.getCoreTiming(player->driver);
+		struct mTiming timing = player->coordinatorDriver.getCoreTiming(player);
 		coordinator->cycle = mTimingCurrentTime(&timing);
 		coordinator->nextHardSync = HARD_SYNC_INTERVAL;
 
@@ -258,7 +258,7 @@ void CoordinatorSetReady(struct SIOLockstepCoordinator* coordinator, struct SIOL
 		ready = activePlayer->otherModes[i] == activePlayer->mode;
 	}
 	if (activePlayer->mode == GBA_SIO_MULTI) {
-		activePlayer->coordinatorDriver.onReady(activePlayer->driver, ready);
+		activePlayer->coordinatorDriver.onReady(activePlayer, ready);
 	}
 
 }
