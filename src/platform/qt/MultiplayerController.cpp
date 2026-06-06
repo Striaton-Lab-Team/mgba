@@ -204,9 +204,9 @@ bool MultiplayerController::attachGame(CoreController* controller) {
 		CoordinatorInit(&m_coordinator);
 		m_platform = controller->platform();
 	}
-	else if (controller->platform() != m_platform) {
-		return false;
-	}
+	// else if (controller->platform() != m_platform) {
+	// 	return false;
+	// }
 
 	mCoreThread* thread = controller->thread();
 	if (!thread) {
@@ -331,7 +331,7 @@ bool MultiplayerController::attachGame(CoreController* controller) {
 				continue;
 			}
 
-			switch (controller->platform()) {
+			switch (playerTemp.controller->platform()) {
 #ifdef M_CORE_GBA
 			case mPLATFORM_GBA: {
 				struct mCore* core = playerTemp.controller->thread()->core;

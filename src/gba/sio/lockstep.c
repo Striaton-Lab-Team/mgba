@@ -34,7 +34,7 @@ static void _onSioDetach(struct SIOLockstepPlayer* player);
 static void _onSioModeSet(struct SIOLockstepPlayer* player);
 static void _onSioTransferStart(struct SIOLockstepPlayer* player, int32_t eventFinishCycles);
 static void _setReady(struct SIOLockstepPlayer* player, bool ready);
-static struct mTiming _coreTiming(struct SIOLockstepPlayer* player);
+static int32_t _coreTiming(struct SIOLockstepPlayer* player);
 static void _onPlayerSleep(struct SIOLockstepPlayer* player);
 
 static void _lockstep(struct mTiming*, void* context, uint32_t);
@@ -345,14 +345,15 @@ static uint8_t GBASIOLockstepDriverFinishNormal8(struct GBASIODriver* driver) {
 	MutexLock(&coordinator->mutex);
 	if (coordinator->transferMode == GBA_SIO_NORMAL_8) {
 		struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, lockstep->lockstepId);
-		if (player->playerId > 0) {
-			if (!player->dataReceived) {
-				mLOG(GBA_SIO, WARN, "NORMAL did not receive data. Are we running behind?");
-			} else {
-				data = coordinator->normalData[player->playerId - 1];
-				mLOG(GBA_SIO, DEBUG, "NORMAL8 transfer finished: %02X", data);
-			}
-		}
+		// if (player->playerId > 0) {
+		// 	if (!player->dataReceived) {
+		// 		mLOG(GBA_SIO, WARN, "NORMAL did not receive data. Are we running behind?");
+		// 	} else {
+		// 		data = coordinator->normalData[player->playerId - 1];
+		// 		mLOG(GBA_SIO, DEBUG, "NORMAL8 transfer finished: %02X", data);
+		// 	}
+		// }
+		data = coordinator->normalData[1];
 		player->dataReceived = false;
 		if (player->playerId == 0) {
 			CoordinatorHardSync(coordinator, player);
@@ -451,9 +452,10 @@ static void _setReady(struct SIOLockstepPlayer* player, bool ready) {
 	sio->rcnt = GBASIORegisterRCNTSetSd(sio->rcnt, ready);
 }
 
-static struct mTiming _coreTiming(struct SIOLockstepPlayer* player) {
+static int32_t _coreTiming(struct SIOLockstepPlayer* player) {
 	struct GBASIODriver* lockstep = (struct GBASIODriver*) player->driver;
-	return lockstep->p->p->timing;
+	int32_t cycles = mTimingCurrentTime(&lockstep->p->p->timing);
+	return cycles;
 }
 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//

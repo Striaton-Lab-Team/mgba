@@ -104,8 +104,9 @@ void CoordinatorAckPlayer(struct SIOLockstepCoordinator* coordinator, struct SIO
 }
 
 int32_t CoordinatorLockstepPlayerTime(struct SIOLockstepPlayer* player) {
-	struct mTiming timing = player->coordinatorDriver.getCoreTiming(player);
-	return mTimingCurrentTime(&timing) - player->cycleOffset;
+	// struct mTiming timing = player->coordinatorDriver.getCoreTiming(player);
+	// return mTimingCurrentTime(&timing) - player->cycleOffset;
+	return player->coordinatorDriver.getCoreTiming(player);
 }
 
 int32_t CoordinatorUntilNextSync(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player) {
@@ -160,8 +161,8 @@ void CoordinatorReconfigPlayers(struct SIOLockstepCoordinator* coordinator) {
 		coordinator->attachedPlayers[0] = p0;
 
 		struct SIOLockstepPlayer* player = TableIteratorGetValue(&coordinator->players, &iter);
-		struct mTiming timing = player->coordinatorDriver.getCoreTiming(player);
-		coordinator->cycle = mTimingCurrentTime(&timing);
+		//struct mTiming timing = player->coordinatorDriver.getCoreTiming(player);
+		coordinator->cycle = player->coordinatorDriver.getCoreTiming(player);
 		coordinator->nextHardSync = HARD_SYNC_INTERVAL;
 
 		if (player->playerId != 0) {

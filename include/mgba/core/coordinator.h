@@ -7,10 +7,10 @@
 extern "C" {
 #endif
 
-#define LOCKSTEP_INTERVAL 256
-#define UNLOCKED_INTERVAL 256
+#define LOCKSTEP_INTERVAL 4096
+#define UNLOCKED_INTERVAL 4096
 #define TARGET_ALL 0xF
-#define HARD_SYNC_INTERVAL 0x1000
+#define HARD_SYNC_INTERVAL 0x80000
 #define TARGET(P) (1 << (P))
 
 #define MAX_LOCKSTEP_EVENTS 8
@@ -51,7 +51,7 @@ struct LockstepCoordinatorDriver {
 	void (*onTransferStart)(struct SIOLockstepPlayer* player, int32_t eventFinishCycles);
 	void (*onReady)(struct SIOLockstepPlayer* player, bool ready);
 	void (*onPlayerSleep)(struct SIOLockstepPlayer* player);
-	struct mTiming (*getCoreTiming)(struct SIOLockstepPlayer* player);
+	int32_t (*getCoreTiming)(struct SIOLockstepPlayer* player);
 };
 
 struct SIOLockstepPlayer {
