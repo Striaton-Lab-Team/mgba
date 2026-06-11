@@ -24,6 +24,7 @@ void GBSIOInit(struct GBSIO* sio) {
 	sio->event.name = "GB SIO";
 	sio->event.callback = _GBSIOProcessEvents;
 	sio->event.priority = 0x30;
+	sio->awaitExternalClock = false;
 
 	sio->driver = NULL;
 }
@@ -74,6 +75,7 @@ void _GBSIOProcessEvents(struct mTiming* timing, void* context, uint32_t cyclesL
 	}
 	if (!sio->remainingBits) {
 		sio->p->memory.io[GB_REG_SC] = GBRegisterSCClearEnable(sio->p->memory.io[GB_REG_SC]);
+		sio->awaitExternalClock = false;
 		if (doIRQ) {
 			sio->p->memory.io[GB_REG_IF] |= (1 << GB_IRQ_SIO);
 			GBUpdateIRQs(sio->p);
@@ -98,8 +100,11 @@ void GBSIOWriteSC(struct GBSIO* sio, uint8_t sc) {
 			mTimingDeschedule(&sio->p->timing, &sio->event);
 			mTimingSchedule(&sio->p->timing, &sio->event, sio->period * (2 - sio->p->doubleSpeed));
 			sio->remainingBits = 8;
+			sio->awaitExternalClock = false;
 		}
+		sio->awaitExternalClock = true;
 	} else {
+		sio->awaitExternalClock = false;
 		mTimingDeschedule(&sio->p->timing, &sio->event);
 	}
 	if (sio->driver) {

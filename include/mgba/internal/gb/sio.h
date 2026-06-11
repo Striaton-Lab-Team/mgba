@@ -33,6 +33,7 @@ struct GBSIO {
 	int remainingBits;
 
 	uint8_t pendingSB;
+	bool awaitExternalClock;
 };
 
 DECL_BITFIELD(GBRegisterSC, uint8_t);

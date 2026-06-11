@@ -247,6 +247,11 @@ static void _onSioTransferStart(struct SIOLockstepPlayer* player, int32_t eventF
 	UNUSED(eventFinishCycles);
 	struct GBSIOLockstepDriver* lockstep = (struct GBSIOLockstepDriver*) player->driver;
 	struct GBSIO* sio = lockstep->d.p;
+	if (!sio->awaitExternalClock) {
+		lockstep->coordinator->normalData[player->playerId] = 0xFF;
+		printf("PlayerId %d, Slave is not ready \n", player->playerId);
+		return;
+	}
 	lockstep->coordinator->normalData[player->playerId] = sio->pendingSB;
 	sio->remainingBits = 8;
 	mTimingDeschedule(&sio->p->timing, &sio->event);
