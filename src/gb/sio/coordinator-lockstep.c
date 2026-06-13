@@ -119,11 +119,13 @@ bool GBSIOLockstepDriverInit(struct GBSIODriver* driver) {
 		nextEvent = LOCKSTEP_INTERVAL;
 	} else {
 		CoordinatorSetReady(coordinator, player, 0, coordinator->transferMode);
-		nextEvent = CoordinatorUntilNextSync(lockstep->coordinator, player) / 4;
+		nextEvent = CoordinatorUntilNextSync(lockstep->coordinator, player);
 	}
 
 	MutexUnlock(&coordinator->mutex);
-	mTimingSchedule(&lockstep->d.p->p->timing, &lockstep->event, nextEvent);
+	struct mTiming timing = lockstep->d.p->p->timing;
+	//timing.masterCycles /= 4;
+	mTimingSchedule(&timing, &lockstep->event, nextEvent  / 4);
 	return true;
 }
 
@@ -274,7 +276,8 @@ static void _lockstep(struct mTiming* timing, void* context, uint32_t cyclesLate
 	struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, lockstep->lockstepId);
 
 	int32_t nextEvent = CoordinatorLockstepEvent(coordinator, player, timing, cyclesLate);
-	mTimingSchedule(timing, &lockstep->event, (nextEvent  ));
+	if (nextEvent < 4) nextEvent = 16;
+	mTimingSchedule(timing, &lockstep->event, (nextEvent  / 4));
 }
 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
@@ -282,7 +285,7 @@ static void _lockstep(struct mTiming* timing, void* context, uint32_t cyclesLate
 static int32_t _coreTiming(struct SIOLockstepPlayer* player) {
 	struct GBSIODriver* lockstep = (struct GBSIODriver*) player->driver;
 	int32_t cycles = mTimingCurrentTime(&lockstep->p->p->timing);
-	return cycles * 4;
+	return cycles;
 }
 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//

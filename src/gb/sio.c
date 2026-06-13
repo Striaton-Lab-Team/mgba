@@ -102,10 +102,11 @@ void GBSIOWriteSC(struct GBSIO* sio, uint8_t sc) {
 			sio->remainingBits = 8;
 			sio->awaitExternalClock = false;
 		}
-		sio->awaitExternalClock = true;
 	} else {
-		sio->awaitExternalClock = false;
 		mTimingDeschedule(&sio->p->timing, &sio->event);
+	}
+	if (GBRegisterSCIsEnable(sc) && !GBRegisterSCIsShiftClock(sc)) {
+		sio->awaitExternalClock = true;
 	}
 	if (sio->driver) {
 		sio->driver->writeSC(sio->driver, sc);

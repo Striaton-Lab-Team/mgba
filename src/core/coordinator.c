@@ -363,7 +363,8 @@ int32_t CoordinatorLockstepEvent(struct SIOLockstepCoordinator* coordinator, str
 		if (!event) {
 			break;
 		}
-		if (event->timestamp > CoordinatorLockstepPlayerTime(player)) {
+		int32_t playerTime = CoordinatorLockstepPlayerTime(player);
+		if (event->timestamp > playerTime) {
 			break;
 		}
 		player->queue = event->next;
@@ -428,8 +429,8 @@ int32_t CoordinatorLockstepEvent(struct SIOLockstepCoordinator* coordinator, str
 		if (!player->queue || wasDetach) {
 			CoordinatorLockstepPlayerSleep(player);
 			// XXX: Is there a better way to gain sync lock at the beginning?
-			if (nextEvent < 4) {
-				nextEvent = 4;
+			if (nextEvent < 64) {
+				nextEvent = 64;
 			}
 			_verifyAwake(coordinator);
 		}
