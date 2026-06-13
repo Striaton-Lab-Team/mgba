@@ -34,6 +34,7 @@ struct GBSIO {
 
 	uint8_t pendingSB;
 	bool awaitExternalClock;
+	bool exchangedBytes;
 };
 
 DECL_BITFIELD(GBRegisterSC, uint8_t);

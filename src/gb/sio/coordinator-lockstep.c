@@ -125,7 +125,7 @@ bool GBSIOLockstepDriverInit(struct GBSIODriver* driver) {
 	MutexUnlock(&coordinator->mutex);
 	struct mTiming timing = lockstep->d.p->p->timing;
 	//timing.masterCycles /= 4;
-	mTimingSchedule(&timing, &lockstep->event, nextEvent  / 4);
+	mTimingSchedule(&timing, &lockstep->event, nextEvent );
 	return true;
 }
 
@@ -187,8 +187,9 @@ static void GBSIOLockstepDriverLoadSB(struct GBSIODriver* driver) {
 	int partnerPlayerId = player->playerId == 0 ? 1 : 0; // GB has only tooie
 
 	struct GBSIO* sio = driver->p;
-	sio->pendingSB = coordinator->normalData[partnerPlayerId];
-
+	sio->pendingSB = sio->exchangedBytes ? coordinator->normalData[partnerPlayerId] : coordinator->normalData[1];
+	sio->exchangedBytes = false;
+	lockstep->coordinator->normalData[player->playerId] = 0xFF;
 	MutexUnlock(&coordinator->mutex);
 }
 
@@ -216,7 +217,8 @@ static uint8_t GBSIOLockstepDriverWriteSC(struct GBSIODriver* driver, uint8_t va
 		coordinator->transferActive = true;
 	}
 	else {
-		printf("PlayerId %d, Could not start transfer \n", player->playerId);
+		printf("PlayerId %d, wait for external clock \n", player->playerId);
+		sio->exchangedBytes = false;
 	}
 	MutexUnlock(&coordinator->mutex);
 
@@ -255,6 +257,7 @@ static void _onSioTransferStart(struct SIOLockstepPlayer* player, int32_t eventF
 		return;
 	}
 	lockstep->coordinator->normalData[player->playerId] = sio->pendingSB;
+	sio->exchangedBytes = true;
 	sio->remainingBits = 8;
 	mTimingDeschedule(&sio->p->timing, &sio->event);
 	mTimingSchedule(&sio->p->timing, &sio->event, sio->period * (2 - sio->p->doubleSpeed));
@@ -276,8 +279,8 @@ static void _lockstep(struct mTiming* timing, void* context, uint32_t cyclesLate
 	struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, lockstep->lockstepId);
 
 	int32_t nextEvent = CoordinatorLockstepEvent(coordinator, player, timing, cyclesLate);
-	if (nextEvent < 4) nextEvent = 16;
-	mTimingSchedule(timing, &lockstep->event, (nextEvent  / 4));
+	//if (nextEvent < 16) nextEvent = 64;
+	mTimingSchedule(timing, &lockstep->event, (nextEvent));
 }
 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
