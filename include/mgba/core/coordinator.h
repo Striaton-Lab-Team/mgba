@@ -19,8 +19,7 @@ extern "C" {
 #define TARGET_SECONDARY ((TARGET_ALL) & ~(TARGET_PRIMARY))
 #include "mgba-util/platform/posix/threading.h"
 #include "mgba-util/table.h"
-#include "mGBA/gba/interface.h"
-
+#include "mgba/gba/interface.h"
 
 enum SIOLockstepEventType {
 	SIO_EV_GB_ATTACH,
@@ -38,9 +37,8 @@ struct SIOLockstepEvent {
 	struct SIOLockstepEvent* next;
 	int playerId;
 
-	enum SIOMode mode; //FIXME
+	enum SIOMode mode; // FIXME
 	int32_t finishCycle;
-
 };
 
 struct SIOLockstepPLayer;
@@ -60,7 +58,7 @@ struct SIOLockstepPlayer {
 
 	int playerId;
 	enum SIOMode mode;
-	enum SIOMode otherModes[4]; //FIXME
+	enum SIOMode otherModes[4]; // FIXME
 	bool asleep;
 	int32_t cycleOffset;
 	struct SIOLockstepEvent* queue;
@@ -99,16 +97,19 @@ void CoordinatorWakePlayers(struct SIOLockstepCoordinator*);
 int32_t CoordinatorLockstepPlayerTime(struct SIOLockstepPlayer*);
 void CoordinatorLockstepPlayerWake(struct SIOLockstepPlayer*);
 void CoordinatorLockstepPlayerSleep(struct SIOLockstepPlayer*);
-bool CoordinatorLockstepOtherPlayerWaiting(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player);
+bool CoordinatorLockstepOtherPlayerWaiting(struct SIOLockstepCoordinator* coordinator,
+                                           struct SIOLockstepPlayer* player);
 
 void CoordinatorRemovePlayer(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer*);
 void CoordinatorReconfigPlayers(struct SIOLockstepCoordinator*);
 int32_t CoordinatorUntilNextSync(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer*);
 void CoordinatorEnqueueEvent(struct SIOLockstepCoordinator*, const struct SIOLockstepEvent*, uint32_t target);
-void CoordinatorSetReady(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer* activePlayer, int playerId, enum SIOMode mode);
+void CoordinatorSetReady(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer* activePlayer, int playerId,
+                         enum SIOMode mode);
 void CoordinatorHardSync(struct SIOLockstepCoordinator*, struct SIOLockstepPlayer*);
 void CoordinatorAbortTransfer(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player);
-int32_t CoordinatorLockstepEvent(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player, struct mTiming* timing, uint32_t cyclesLate);
+int32_t CoordinatorLockstepEvent(struct SIOLockstepCoordinator* coordinator, struct SIOLockstepPlayer* player,
+                                 struct mTiming* timing, uint32_t cyclesLate);
 
 void CoordinatorInit(struct SIOLockstepCoordinator*);
 void CoordinatorDeinit(struct SIOLockstepCoordinator*);
