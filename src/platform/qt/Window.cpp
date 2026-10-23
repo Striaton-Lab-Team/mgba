@@ -12,6 +12,7 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QScreen>
+#include <QTextStream>
 #include <QWindow>
 
 #ifdef Q_OS_WIN
@@ -2318,7 +2319,22 @@ void Window::setController(CoreController* controller, const QString& fname) {
 	if (!m_scripting) {
 		QStringList scripts = m_config->getArgvOption("script").toStringList();
 		if (!scripts.isEmpty()) {
-			scriptingOpen();
+			// Command-line scripts run without the scripting window unless --scripting-window
+			// is given (Tools > Scripting still opens it). Their output also goes to the
+			// terminal, so it's visible without the window (for example when headless).
+			ensureScripting();
+			connect(m_scripting.get(), &ScriptingController::log, this, [](const QString& message) {
+				QTextStream(stdout) << "Script: " << message << Qt::endl;
+			});
+			connect(m_scripting.get(), &ScriptingController::warn, this, [](const QString& message) {
+				QTextStream(stderr) << "Script warning: " << message << Qt::endl;
+			});
+			connect(m_scripting.get(), &ScriptingController::error, this, [](const QString& message) {
+				QTextStream(stderr) << "Script error: " << message << Qt::endl;
+			});
+			if (m_config->getArgvOption("scripting-window").toBool()) {
+				scriptingOpen();
+			}
 			for (const auto& scriptPath : scripts) {
 				m_scripting->loadFile(scriptPath);
 			}

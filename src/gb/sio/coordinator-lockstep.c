@@ -171,7 +171,7 @@ static void GBSIOLockstepDriverWriteSB(struct GBSIODriver* driver, uint8_t value
 
 	coordinator->normalData[player->playerId] = value;
 	sio->pendingSB = value;
-	printf("PlayerId %d, Write value to SB: %d \n", player->playerId, value);
+	// printf("PlayerId %d, Write value to SB: %d \n", player->playerId, value);
 	MutexUnlock(&coordinator->mutex);
 }
 
@@ -202,7 +202,7 @@ static uint8_t GBSIOLockstepDriverWriteSC(struct GBSIODriver* driver, uint8_t va
 	MutexLock(&coordinator->mutex);
 
 	struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, lockstep->lockstepId);
-	printf("PlayerId %d, Write value to SC: %d \n", player->playerId, value);
+	// printf("PlayerId %d, Write value to SC: %d \n", player->playerId, value);
 	if ((value & 0x81) == 0x81 && coordinator->nAttached > 1 && player->playerId == 0) {
 		int32_t timestamp = CoordinatorLockstepPlayerTime(player);
 		struct SIOLockstepEvent event = {
@@ -212,12 +212,12 @@ static uint8_t GBSIOLockstepDriverWriteSC(struct GBSIODriver* driver, uint8_t va
 		};
 		lockstep->coordinator->normalData[player->playerId] = sio->pendingSB;
 		CoordinatorEnqueueEvent(coordinator, &event, TARGET_SECONDARY);
-		printf("PlayerId %d, Master transmit event started \n", player->playerId);
+		// printf("PlayerId %d, Master transmit event started \n", player->playerId);
 		CoordinatorWaitOnPlayers(coordinator, player);
 		coordinator->transferActive = true;
 	}
 	else {
-		printf("PlayerId %d, wait for external clock \n", player->playerId);
+		// printf("PlayerId %d, wait for external clock \n", player->playerId);
 		sio->exchangedBytes = false;
 	}
 	MutexUnlock(&coordinator->mutex);
@@ -253,7 +253,7 @@ static void _onSioTransferStart(struct SIOLockstepPlayer* player, int32_t eventF
 	struct GBSIO* sio = lockstep->d.p;
 	if (!sio->awaitExternalClock) {
 		lockstep->coordinator->normalData[player->playerId] = 0xFF;
-		printf("PlayerId %d, Slave is not ready \n", player->playerId);
+		// printf("PlayerId %d, Slave is not ready \n", player->playerId);
 		return;
 	}
 	lockstep->coordinator->normalData[player->playerId] = sio->pendingSB;
@@ -261,7 +261,7 @@ static void _onSioTransferStart(struct SIOLockstepPlayer* player, int32_t eventF
 	sio->remainingBits = 8;
 	mTimingDeschedule(&sio->p->timing, &sio->event);
 	mTimingSchedule(&sio->p->timing, &sio->event, sio->period * (2 - sio->p->doubleSpeed));
-	printf("PlayerId %d, Slave transmit event started \n", player->playerId);
+	// printf("PlayerId %d, Slave transmit event started \n", player->playerId);
 }
 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//

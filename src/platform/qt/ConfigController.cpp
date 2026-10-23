@@ -22,6 +22,7 @@ static const mOption s_frontendOptions[] = {
 	{ "mb", true, '\0' },
 #ifdef ENABLE_SCRIPTING
 	{ "script", true, '\0' },
+	{ "scripting-window", false, '\0' },
 #endif
 	{ 0 }
 };
@@ -165,6 +166,7 @@ ConfigController::ConfigController(QObject* parent)
 	      "  --mb FILE      Boot a multiboot image with FILE inserted into the ROM slot"
 #ifdef ENABLE_SCRIPTING
 	    "\n  --script FILE  Run a script on start. Can be passed multiple times\n"
+	    "  --scripting-window  Open the scripting window for scripts passed with --script\n"
 #endif
 	    ;
 
@@ -193,6 +195,10 @@ ConfigController::ConfigController(QObject* parent)
 			}
 			scripts.append(QString::fromUtf8(arg));
 			self->m_argvOptions[optionName] = scripts;
+			return true;
+		}
+		if (optionName == QLatin1String("scripting-window")) {
+			self->m_argvOptions[optionName] = true;
 			return true;
 		}
 #endif
