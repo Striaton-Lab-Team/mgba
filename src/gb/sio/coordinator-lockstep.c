@@ -28,6 +28,24 @@ static void _onPlayerSleep(struct SIOLockstepPlayer* player);
 
 static void _lockstep(struct mTiming*, void* context, uint32_t);
 
+#define GB_CPU_SPEED 0x00400000 
+#define MGBA_GB_CYCLE_SPEED 0x00800000 // mGBA runs the GB cycle twice in order to support GBC double speed mode
+#define GBA_CPU_SPEED 0x01000000
+
+static int32_t _toGBACycles(int32_t gbCycles) {
+	return gbCycles * (GBA_CPU_SPEED / MGBA_GB_CYCLE_SPEED);
+}
+
+static int32_t _toGBCycles(int32_t gbaCycles) {
+	int32_t out = gbaCycles / (GBA_CPU_SPEED / MGBA_GB_CYCLE_SPEED);
+	if (out == 0)
+	{
+		return 1;
+	}
+	return out;
+	
+}
+
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
 
 void GBSIOLockstepDriverCreate(struct GBSIOLockstepDriver* driver, struct mLockstepUser* user) {
@@ -125,7 +143,7 @@ bool GBSIOLockstepDriverInit(struct GBSIODriver* driver) {
 	MutexUnlock(&coordinator->mutex);
 	struct mTiming timing = lockstep->d.p->p->timing;
 	//timing.masterCycles /= 4;
-	mTimingSchedule(&timing, &lockstep->event, nextEvent );
+	mTimingSchedule(&timing, &lockstep->event, _toGBCycles(nextEvent));
 	return true;
 }
 
@@ -208,7 +226,7 @@ static uint8_t GBSIOLockstepDriverWriteSC(struct GBSIODriver* driver, uint8_t va
 		struct SIOLockstepEvent event = {
 			.type = SIO_EV_TRANSFER_START,
 			.timestamp = timestamp,
-			.finishCycle = timestamp + GBSIOCyclesPerTransfer[(value >> 1) & 1]
+			.finishCycle = timestamp + GBSIOCyclesPerTransfer[(value >> 1) & 1] * (GBA_CPU_SPEED / GB_CPU_SPEED) * 8 // 8 bits in a byte
 		};
 		lockstep->coordinator->normalData[player->playerId] = sio->pendingSB;
 		CoordinatorEnqueueEvent(coordinator, &event, TARGET_SECONDARY);
@@ -278,9 +296,9 @@ static void _lockstep(struct mTiming* timing, void* context, uint32_t cyclesLate
 	struct SIOLockstepCoordinator* coordinator = lockstep->coordinator;
 	struct SIOLockstepPlayer* player = TableLookup(&coordinator->players, lockstep->lockstepId);
 
-	int32_t nextEvent = CoordinatorLockstepEvent(coordinator, player, timing, cyclesLate);
+	int32_t nextEvent = CoordinatorLockstepEvent(coordinator, player, timing, _toGBACycles(cyclesLate));
 	//if (nextEvent < 16) nextEvent = 64;
-	mTimingSchedule(timing, &lockstep->event, (nextEvent));
+	mTimingSchedule(timing, &lockstep->event, _toGBCycles(nextEvent));
 }
 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
@@ -288,7 +306,7 @@ static void _lockstep(struct mTiming* timing, void* context, uint32_t cyclesLate
 static int32_t _coreTiming(struct SIOLockstepPlayer* player) {
 	struct GBSIODriver* lockstep = (struct GBSIODriver*) player->driver;
 	int32_t cycles = mTimingCurrentTime(&lockstep->p->p->timing);
-	return cycles;
+	return _toGBACycles(cycles);
 }
 
 //-////////////////////////////////////////////////////////////////////////////////////////////////////////-//
